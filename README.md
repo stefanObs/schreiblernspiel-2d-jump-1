@@ -12,7 +12,7 @@ Node.js und npm werden beim ersten Start nach `.tools/` heruntergeladen (Interne
 | macOS | `./play-macos.sh` oder Doppelklick `play-macos.command` |
 | Windows | Doppelklick `play-windows.bat` |
 
-Der Browser öffnet das Spiel (Vite, http://127.0.0.1:5173/). Editor: http://127.0.0.1:5173/editor.html
+Der Server lauscht auf allen Netzwerkkarten (`0.0.0.0:5173`), nicht nur localhost. Aufruf z. B. `http://<öffentliche-oder-LAN-IP>:5173/` und Editor `http://<IP>:5173/editor.html`. Firewall/Router müssen Port **5173** durchlassen.
 
 Entwicklung mit bereits vorhandenem Node:
 
@@ -22,9 +22,9 @@ npm test
 npm run dev
 ```
 
-- Spiel: http://localhost:5173/
+- Spiel: http://localhost:5173/ oder `http://<IP>:5173/`
 - Editor: http://localhost:5173/editor.html
 
-Steuerung: Touch-Buttons unten (Links/Rechts/Sprung). Schreiben: natives Textfeld + Windows Pen-Tastatur. Schwierigere Wörter: Editor → Speichern (localStorage) oder JSON exportieren.
+Steuerung: Touch-Buttons unten **oder Tastatur** (Pfeile / WASD, Springen mit Leertaste oder ↑). Beim Schreiben im Rätsel bleibt die Tastatur beim Textfeld.
 
 Build: `npm run build`

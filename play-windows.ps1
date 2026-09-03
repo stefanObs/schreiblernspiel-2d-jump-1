@@ -31,5 +31,5 @@ Write-Host "Installiere Abhängigkeiten …"
 & $NpmCmd install
 if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
 Write-Host "Starte Spiel (Browser öffnet sich) …"
-& $NpmCmd run dev -- --host 127.0.0.1 --open
+& $NpmCmd run dev -- --host 0.0.0.0 --open
 exit $LASTEXITCODE

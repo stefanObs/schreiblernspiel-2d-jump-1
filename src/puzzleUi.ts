@@ -2,7 +2,7 @@ import { ANLAUT_TILES } from "./logic/anlaut";
 import { matchPuzzle } from "./logic/matchPuzzle";
 import { TRACE_PASS, templatePath, traceScore } from "./logic/traceScore";
 import type { Point, Puzzle } from "./logic/puzzleTypes";
-import { shouldSpeakSolution, speakGerman, type SpeakFn } from "./logic/speech";
+import { shouldSpeakSolution, speakGerman, unlockSpeech, type SpeakFn } from "./logic/speech";
 
 export type OverlayHandlers = {
   onSolved: (puzzle: Puzzle) => void;
@@ -31,29 +31,42 @@ export function openPuzzle(puzzle: Puzzle, handlers: OverlayHandlers): void {
   if (!root || !input || !prompt || !motif || !hear || !textRow || !trace || !anlaut || !err) {
     return;
   }
-  err.textContent = "";
+  if (typeof speechSynthesis === "undefined" && puzzle.hintMode === "hear") {
+    err.textContent = "Keine Vorlese-Stimme. Unter Windows eine deutsche Stimme aktivieren.";
+  }
   input.value = "";
   input.classList.remove("wrong");
   prompt.textContent = puzzle.prompt;
+  if (puzzle.hintMode === "hear" && puzzle.type !== "trace") {
+    prompt.textContent = `${puzzle.prompt} Tippe auf „Wort hören“.`;
+  }
   root.classList.remove("hidden");
 
   const speak = handlers.speak ?? speakGerman;
   const isTrace = puzzle.type === "trace";
   textRow.classList.toggle("hidden", isTrace);
   trace.classList.toggle("hidden", !isTrace);
+  hear.textContent = "Wort hören";
   hear.classList.toggle("hidden", puzzle.hintMode !== "hear" || isTrace);
   motif.classList.toggle("hidden", puzzle.hintMode !== "motif");
   motif.innerHTML = puzzle.hintMode === "motif" ? motifSvg(puzzle.motifId) : "";
   anlaut.classList.toggle("hidden", puzzle.anlautVisible === false);
   renderAnlaut(anlaut, speak);
 
-  if (shouldSpeakSolution(puzzle.hintMode, isTrace)) {
-    speak(puzzle.voiceText);
-  }
-
-  hear.onclick = () => {
-    if (puzzle.hintMode === "hear") speak(puzzle.voiceText);
+  const playWord = () => {
+    unlockSpeech();
+    if (shouldSpeakSolution(puzzle.hintMode, isTrace) || puzzle.hintMode === "hear") {
+      speak(puzzle.voiceText);
+    }
   };
+  hear.onclick = (e) => {
+    e.preventDefault();
+    playWord();
+  };
+
+  if (shouldSpeakSolution(puzzle.hintMode, isTrace)) {
+    window.setTimeout(playWord, 200);
+  }
 
   if (isTrace) {
     setupTrace(trace, puzzle, handlers);

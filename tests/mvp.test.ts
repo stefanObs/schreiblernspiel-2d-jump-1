@@ -1,9 +1,9 @@
 import { describe, expect, it } from "vitest";
-import { shouldSpeakSolution } from "../src/logic/speech";
+import { pickGermanVoice, shouldSpeakSolution } from "../src/logic/speech";
 import { shouldKeepWorldPaused } from "../src/logic/pause";
 import { answersMatch, normalizeAnswer } from "../src/logic/normalizeAnswer";
 import { matchPuzzle } from "../src/logic/matchPuzzle";
-import { canJump, jumpVelocity, moveSpeed, RESPAWN } from "../src/logic/playerRules";
+import { canJump, combineMove, jumpVelocity, moveSpeed, RESPAWN } from "../src/logic/playerRules";
 import { ANLAUT_TILES } from "../src/logic/anlaut";
 import { TRACE_PASS, templatePath, traceScore } from "../src/logic/traceScore";
 import { builtinPuzzles, exportPuzzlesJson, parsePuzzlesJson } from "../src/logic/puzzleStore";
@@ -25,9 +25,17 @@ describe("playerRules", () => {
     expect(canJump(true, true)).toBe(false);
   });
   it("keeps respawn and auto vs mech speeds", () => {
-    expect(RESPAWN.x).toBe(120);
+    expect(RESPAWN.x).toBe(200);
+    expect(RESPAWN.y).toBe(620);
     expect(moveSpeed("auto")).toBeGreaterThan(moveSpeed("mech"));
     expect(Math.abs(jumpVelocity("auto"))).toBeLessThan(Math.abs(jumpVelocity("mech")));
+  });
+  it("merges pad and keyboard", () => {
+    expect(combineMove({ left: false, right: true, jump: false }, { left: true, right: false, jump: true })).toEqual({
+      left: true,
+      right: true,
+      jump: true,
+    });
   });
 });
 
@@ -56,6 +64,14 @@ describe("speech policy", () => {
   it("speaks in hear mode and not for motif solution", () => {
     expect(shouldSpeakSolution("hear", false)).toBe(true);
     expect(shouldSpeakSolution("motif", false)).toBe(false);
+  });
+  it("prefers a de-DE voice", () => {
+    const v = pickGermanVoice([
+      { lang: "en-US" },
+      { lang: "de-CH" },
+      { lang: "de-DE" },
+    ]);
+    expect(v?.lang).toBe("de-DE");
   });
 });
 

@@ -73,5 +73,5 @@ run_game() {
   echo "Installiere Abhängigkeiten …"
   "$NPM_BIN" install
   echo "Starte Spiel (Browser öffnet sich) …"
-  exec "$NPM_BIN" run dev -- --host 127.0.0.1 --open
+  exec "$NPM_BIN" run dev -- --host 0.0.0.0 --open
 }
