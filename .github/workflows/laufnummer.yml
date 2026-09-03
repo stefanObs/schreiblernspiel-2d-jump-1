@@ -13,7 +13,7 @@ concurrency:
 
 jobs:
   bump-and-tag:
-    if: ${{ !startsWith(github.event.head_commit.message, 'chore: n') }}
+    if: "!startsWith(github.event.head_commit.message, 'chore: n')"
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
