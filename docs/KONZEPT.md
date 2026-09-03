@@ -19,8 +19,8 @@ Beispiele:
 - Wort **Seil** → Seil kommt herunter
 - Wort **Brücke** → Brücke senkt sich
 - Transform **Schiff** / **Flug** / **Mech** / **Auto** → Mech wechselt die Gestalt
-- Mathe-Lösung → Plattform, Tür oder Zähler wird freigeschaltet
-- Nachzeichnen eines Pfads → Leitung, Brücke oder Effekt entsteht
+- Mathe-Lösung (Plus, Größer/Kleiner, Zurückzählen, …) → Plattform, Tür oder Zähler wird freigeschaltet
+- Nachzeichnen → Brücke, Leiter, Seil, Leitung oder anderer Welteffekt entsteht
 
 ---
 
@@ -102,16 +102,39 @@ Beispiele Effekte: Seil, Brücke, Tür/Auf, Ball, Leiter, …
 
 ### 4.2 Mathe
 
-- Aufgabe als Text/Darstellung (z. B. `3 + 2 = ?`, abzählen)
-- Antwort im Textfeld (Zahl)
-- Richtige Zahl → Plattform, Tür, Zähler, „genau so viele“ Objekte
+Aufgabe erscheint als Text/Bild; Antwort im **Textfeld** (Spiel pausiert). Richtige Lösung → Welteffekt (Plattform, Tür, Zähler, Objekte).
+
+**Aufgabentypen (1. Klasse, erweiterbar im Editor):**
+
+| Typ | Beispiel | Eingabe |
+|-----|----------|---------|
+| **Plus / Minus** | `3 + 2 = ?`, `5 − 1 = ?` | Zahl |
+| **Abzählen** | Sterne/Steine auf dem Schild zählen | Zahl |
+| **Größer / Kleiner** | `4 □ 7` oder „Welche Zahl ist größer?“ mit zwei Mengen | `<` / `>` / Zahl / Wort je nach Variante |
+| **Vergleich wählen** | Zwei Bilder: links 3 Äpfel, rechts 5 — „Wo sind mehr?“ | `links`/`rechts` oder die größere Zahl |
+| **Zurückzählen** | Von 5 auf 0 (Countdown-Schild, Treppe, Rakete) | nächste Zahl oder Sequenz Schritt für Schritt |
+| **Zahlenreihe** | `2, 3, _, 5` | fehlende Zahl |
+| **Gleich viel** | Zwei Gruppen angleichen / „genau so viele“ | Zahl |
+
+Größer/Kleiner und Zurückzählen sind **eigene Rätselvarianten**, nicht nur Plus-Aufgaben — im Editor als Mathe-Untertyp wählbar.
 
 ### 4.3 Nachzeichnen
 
-- Gestrichelte Form auf dem Monitor (Pfad, Welle, Kreis, Buchstabenform)
+- Gestrichelte Vorlage auf dem Monitor (Pfad, Bogen, Leiter-Sprossen, Brückenlinie, Welle, Kreis, Buchstabenform)
 - Mit Pen ausreichend genau nachzeichnen
 - Großzügige Toleranz; positives Einrast-Feedback
-- Löst z. B. Leitung, Laserbrücke oder Start einer Animation
+- Nach erfolgreichem Nachzeichnen entsteht der **Welteffekt** — dieselben Bausteine wie bei Wort-Magie, nur ausgelöst durch Zeichnen:
+
+| Nachgezeichnet | Effekt in der Welt |
+|----------------|--------------------|
+| Brückenlinie / Balken | **Brücke** klappt herunter oder erscheint |
+| Senkrechte Sprossen / Leiterform | **Leiter** fährt aus oder wird begehbar |
+| Seilkurve / Wellenlinie | **Seil** kommt herunter |
+| Schlauch- / Leitungspfad | Wasser/Strom fließt, Rauch verschwindet |
+| Rampe / Schräge | Auffahrt für **Auto** |
+| Flugbogen | kurze Flug-/Gleitstrecke |
+
+Wort-Magie und Nachzeichnen können denselben Effekt auslösen (z. B. Brücke per Wort *oder* per Nachzeichnen) — der Level-Designer / Editor wählt den Auslöser.
 
 ### 4.4 Transform per Schreibkommando
 
@@ -177,8 +200,10 @@ Kurze Sessions (ca. 5–10 Minuten) anstreben.
 1. Bolt bis zum Bach — Brücke oben
 2. Station: Hör- oder Motiv-Modus → Kind schreibt **Brücke** (Pause) → Brücke klappt herunter
 3. Leiter zu hoch → **Leiter**
-4. Optional: Schlauch-Pfad nachzeichnen → Rauch verschwindet (niedlich)
-5. Ziel erreicht → Stern / nächstes Level
+4. Optional: Brückenlinie oder Leiter **nachzeichnen** statt (oder zusätzlich zum) Wort — gleicher Welteffekt
+5. Optional: Schlauch-Pfad nachzeichnen → Rauch verschwindet (niedlich)
+6. Mathe-Station z. B. Größer/Kleiner oder Zurückzählen → Plattform freigeben
+7. Ziel erreicht → Stern / nächstes Level
 
 Transform-Beispiel: Wasserabschnitt → Kind muss **Schiff** schreiben, danach wieder **Mech**.
 
@@ -192,22 +217,24 @@ Es gibt einen **Editor**, mit dem Eltern/Lehrpersonen Mathe- und Schreibrätsel 
 
 | Feld        | Inhalt                                              |
 |-------------|-----------------------------------------------------|
-| Typ         | Wort-Magie · Mathe · Transform                      |
-| Hinweis     | Hören / Motiv / Wechsel                             |
-| Lösung      | z. B. `Seil`, `Schiff`, `7`                          |
+| Typ         | Wort-Magie · Mathe · Transform · Nachzeichnen       |
+| Hinweis     | Hören / Motiv / Wechsel (bei Wort)                  |
+| Lösung      | z. B. `Seil`, `Schiff`, `7`, `<`                     |
 | Stimme      | Vorlese-Text (oft = Lösungswort)                    |
 | Motiv       | Bild wählen oder hochladen                          |
-| Effekt      | Seil, Brücke, Transform, Tür, …                     |
+| Effekt      | Seil, Brücke, Leiter, Transform, Tür, …             |
 | Schwierigkeit | Stufe oder Freischalt-Bedingung                   |
 | Ort         | Level + Station                                     |
 
-Mathe: Aufgabentext/Darstellung + erwartete Zahl.
+**Mathe im Editor:** Untertyp wählen (Plus/Minus, Abzählen, Größer/Kleiner, Zurückzählen, Zahlenreihe, …) + Aufgabendarstellung + erwartete Antwort(en).
+
+**Nachzeichnen im Editor:** Vorlage (Pfad/Form) + Effekt (`spawn_bridge`, `spawn_ladder`, `spawn_rope`, …) — Brücke/Leiter/Seil also auch ohne Schreibwort möglich.
 
 ### 8.2 Progression
 
 - Rätsel in **Sets** („Woche 1“, „längere Wörter“, „Umlaute“, …)
-- Start: kurze Wörter (3–4 Buchstaben), einfache Rechnungen
-- Später: längere Wörter, nur Hören ohne Motiv, Anlauttabelle aus, schwierigere Mathe
+- Start: kurze Wörter (3–4 Buchstaben), einfaches Plus/Abzählen, Nachzeichnen von Brücke/Leiter
+- Später: längere Wörter, nur Hören ohne Motiv, Anlauttabelle aus, Größer/Kleiner, Zurückzählen, Zahlenreihen
 - Freischaltung manuell oder nach Spielerfolg
 
 ### 8.3 Editor-Funktionen
@@ -259,8 +286,9 @@ Der Editor ändert **Inhalt und Schwierigkeit**; Steuerung (Pause, Textfeld, Pen
 5. Hör-Button wiederholbar
 6. Einfache Anlauttabelle (Teilmenge)
 7. Transform mindestens **Mech** / **Auto** (oder Schiff)
-8. Ein Mathe-Schild
-9. Minimaler Editor: Wort + Lösung + Hinweis-Modus speichern/laden
+8. Mathe: mindestens Plus **und** eine Vergleichs- oder Zurückzähl-Variante
+9. Nachzeichnen: mindestens eine **Brücke** oder **Leiter** per Pfad
+10. Minimaler Editor: Wort/Mathe-Untertyp + Lösung + Hinweis-Modus (+ Nachzeichneffekt) speichern/laden
 
 ---
 
@@ -281,7 +309,6 @@ Der Editor ändert **Inhalt und Schwierigkeit**; Steuerung (Pause, Textfeld, Pen
 
 - Exakter Tech-Stack und Projektstruktur im Repo
 - Umfang der ersten Anlauttabelle (Vollsatz vs. Teilmenge)
-- Ob Nachzeichnen im MVP enthalten ist
+- Eingabeformate für Größer/Kleiner (`<`/`>` vs. Wörter vs. Zahl wählen)
 - Speichern von Editor-Inhalten nur lokal vs. Cloud/Datei-Sync
 - Rechte/Credits für Anlaut-Didaktik (eigene Art, Leseschlau nur als strukturelles Vorbild)
-```
