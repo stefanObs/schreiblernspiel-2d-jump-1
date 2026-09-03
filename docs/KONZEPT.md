@@ -6,6 +6,8 @@ Kindgerechtes Browser-Spiel für die **1. Klasse**: Jump & Run mit Schreib-, Rec
 
 **Zielgruppe:** Primarschule, ca. 1. Klasse · **Plattform:** Browser · **Eingabe:** Touch + Pen (kein Pflicht-Gamepad)
 
+**Entwicklung:** [`docs/ENTWICKLUNGSABLAUF.md`](ENTWICKLUNGSABLAUF.md). Default = **Parent-Fast-Path** (eine Runde) für ein klares Slice/Docs/Hotfix; Subagenten nur bei mehreren Slices oder nicht-trivialer Spiel-Logik. Tests headless/automatisiert; Surface/Pen nur auf Anforderung. Git-Tag `n<laufnummer>` (kein SemVer).
+
 ---
 
 ## 1. Spielidee
