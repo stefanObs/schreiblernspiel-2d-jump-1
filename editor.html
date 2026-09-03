@@ -1,0 +1,56 @@
+<!doctype html>
+<html lang="de">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>Rätsel-Editor</title>
+  </head>
+  <body>
+    <nav id="top-nav">
+      <a href="./index.html">Spielen</a>
+      <strong>Editor</strong>
+    </nav>
+    <div id="editor">
+      <p>Built-in-Rätsel bleiben. Speichern legt lokale Overrides in diesem Browser an. Export teilt eine JSON-Datei.</p>
+      <button type="button" id="f-new">Neu</button>
+      <button type="button" id="f-save">Speichern</button>
+      <button type="button" id="f-export">Export JSON</button>
+      <label>Import <input type="file" id="f-import" accept="application/json" /></label>
+      <label>id <input id="f-id" /></label>
+      <label>Typ
+        <select id="f-type">
+          <option value="word">Wort</option>
+          <option value="math">Mathe</option>
+          <option value="transform">Transform</option>
+          <option value="trace">Nachzeichnen</option>
+        </select>
+      </label>
+      <label>Hinweis
+        <select id="f-hint">
+          <option value="hear">Hören</option>
+          <option value="motif">Motiv</option>
+        </select>
+      </label>
+      <label>Lösung <input id="f-solution" /></label>
+      <label>Stimme <input id="f-voice" /></label>
+      <label>Effekt <input id="f-effect" value="spawn_bridge" /></label>
+      <label>Prompt <input id="f-prompt" /></label>
+      <div id="editor-list"></div>
+    </div>
+    <div id="puzzle-overlay" class="hidden">
+      <div id="puzzle-panel">
+        <button type="button" id="puzzle-hear">Nochmal hören</button>
+        <div id="puzzle-motif"></div>
+        <p id="puzzle-prompt"></p>
+        <div id="puzzle-text-row">
+          <input id="puzzle-input" autocomplete="off" />
+        </div>
+        <canvas id="puzzle-trace" class="hidden" width="400" height="240"></canvas>
+        <p id="puzzle-error"></p>
+        <button type="button" id="puzzle-ok">Fertig</button>
+        <div id="puzzle-anlaut"></div>
+      </div>
+    </div>
+    <script type="module" src="/src/editor.ts"></script>
+  </body>
+</html>

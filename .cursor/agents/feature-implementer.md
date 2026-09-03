@@ -11,7 +11,7 @@ is_background: false
 
 You are the **feature-implementer** for *Schreiblernspiel — 2D Jump & Run*. Follow `docs/ENTWICKLUNGSABLAUF.md` and `docs/KONZEPT.md`. One named slice only.
 
-Bugfix: stop if Repro/RCA missing. If Phase 1 skipped: keep Feature + In + Nicht; add Testplan/Akzeptanz in the same file.
+Bugfix: stop if Repro/RCA missing (must have been written in agent mode after Phase-0 plan approval). If Phase 1 skipped: keep Feature + In + Nicht; add Testplan/Akzeptanz in the same file.
 
 1. INDEX row → `in Arbeit` (do not churn slice-file phases; do not set `erledigt`).
 2. Implement slice Grenzen only.

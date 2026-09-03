@@ -1,0 +1,41 @@
+<!doctype html>
+<html lang="de">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>Schreiblernspiel — Bachbrücke</title>
+  </head>
+  <body>
+    <div id="wrap">
+      <nav id="top-nav">
+        <strong>Schreiblernspiel</strong>
+        <a href="./index.html">Spielen</a>
+        <a href="./editor.html">Editor</a>
+      </nav>
+      <div id="game"></div>
+    </div>
+    <div id="hud">
+      <div id="pads">
+        <button type="button" id="pad-left" aria-label="Links">◀</button>
+        <button type="button" id="pad-right" aria-label="Rechts">▶</button>
+      </div>
+      <button type="button" id="pad-jump" aria-label="Springen">Sprung</button>
+    </div>
+    <div id="goal-banner" class="hidden">Ziel erreicht!</div>
+    <div id="puzzle-overlay" class="hidden">
+      <div id="puzzle-panel">
+        <button type="button" id="puzzle-hear">Nochmal hören</button>
+        <div id="puzzle-motif"></div>
+        <p id="puzzle-prompt"></p>
+        <div id="puzzle-text-row">
+          <input id="puzzle-input" autocomplete="off" autocapitalize="off" />
+        </div>
+        <canvas id="puzzle-trace" class="hidden" width="400" height="240"></canvas>
+        <p id="puzzle-error"></p>
+        <button type="button" id="puzzle-ok">Fertig</button>
+        <div id="puzzle-anlaut"></div>
+      </div>
+    </div>
+    <script type="module" src="/src/main.ts"></script>
+  </body>
+</html>

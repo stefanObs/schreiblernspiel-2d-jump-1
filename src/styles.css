@@ -1,0 +1,37 @@
+* { box-sizing: border-box; }
+html, body { margin: 0; height: 100%; background: #4DA3FF; font-family: sans-serif; color: #1A1A1A; }
+#wrap { display: flex; flex-direction: column; height: 100%; }
+#top-nav { padding: 8px 16px; background: #fff; border-bottom: 4px solid #1A1A1A; display: flex; gap: 16px; align-items: center; }
+#top-nav a { color: #1A1A1A; font-weight: 700; }
+#game { flex: 1; min-height: 0; }
+#hud {
+  position: fixed; left: 0; right: 0; bottom: 0; display: flex; justify-content: space-between;
+  padding: 12px 24px 20px; pointer-events: none;
+}
+#hud button { pointer-events: auto; width: 96px; height: 96px; font-size: 28px; border: 4px solid #1A1A1A;
+  border-radius: 16px; background: #fff; box-shadow: 4px 4px 0 #1A1A1A; }
+#pads { display: flex; gap: 12px; }
+#puzzle-overlay {
+  position: fixed; inset: 0; background: rgba(255,255,255,0.92); display: flex; flex-direction: column;
+  align-items: center; padding: 24px 24px 140px; z-index: 20; overflow: auto;
+}
+#puzzle-overlay.hidden, .hidden { display: none !important; }
+#puzzle-panel {
+  background: #fff; border: 4px solid #1A1A1A; box-shadow: 6px 6px 0 #1A1A1A; padding: 20px;
+  width: min(720px, 100%); border-radius: 12px;
+}
+#puzzle-input { width: 100%; font-size: 28px; padding: 12px; border: 4px solid #1A1A1A; margin: 12px 0; }
+#puzzle-input.wrong { border-color: #E53935; }
+#puzzle-ok { font-size: 22px; padding: 12px 24px; border: 4px solid #1A1A1A; background: #FFD600; }
+#puzzle-hear { font-size: 20px; margin-bottom: 8px; }
+#puzzle-anlaut { display: flex; flex-wrap: wrap; gap: 8px; margin-top: 16px; }
+.anlaut-tile {
+  white-space: pre-line; min-width: 72px; min-height: 64px; border: 3px solid #1A1A1A; background: #FFF8E1; font-size: 14px;
+}
+#puzzle-trace { border: 3px solid #1A1A1A; background: #E3F2FD; touch-action: none; }
+#goal-banner { position: fixed; top: 80px; left: 50%; transform: translateX(-50%); background: #FFD600;
+  border: 4px solid #1A1A1A; padding: 12px 20px; z-index: 15; font-size: 22px; }
+.editor-row { display: flex; gap: 8px; flex-wrap: wrap; align-items: center; padding: 8px 0; border-bottom: 2px solid #eee; }
+#editor { max-width: 900px; margin: 0 auto; padding: 16px; }
+label { display: block; margin: 8px 0; }
+input, select { font-size: 18px; padding: 8px; }

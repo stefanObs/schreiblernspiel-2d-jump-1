@@ -45,6 +45,8 @@ Pass | Fail | Blocked
 ## On Fail — Repro for Phase 0
 - steps / expected / actual / logs
 
+Parent runs Phase 0: SwitchMode plan first, write RCA only in agent mode after approval.
+
 ## Remaining optional manual (not run)
 - …
 ```

@@ -43,4 +43,4 @@ Approve | Approve with fixes | Block
 - RCA/repro: yes / no / n/a
 ```
 
-Critical/High before Git. Bug-like findings → Phase 0.
+Critical/High before Git. Bug-like findings → Phase 0 (parent: plan mode first, then write RCA).

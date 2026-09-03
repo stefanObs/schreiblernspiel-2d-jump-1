@@ -9,7 +9,7 @@
 **Hängt ab von:** — | S01 | …  
 **Pfad:** Fast-Path | Voller Loop
 
-Planner nur bei Bugs/Art-Dateien/Multi-System/unklarem Scope. Sonst Stub + Implementer ergänzt Testplan/Akzeptanz hier. INDEX: `offen` → `in Arbeit` → `erledigt`.
+Planner nur bei Bugs/Art-Dateien/Multi-System/unklarem Scope — zuerst Cursor-Plan-Modus, Slice-Datei erst nach Freigabe im Agent-Modus. Sonst Stub + Implementer ergänzt Testplan/Akzeptanz hier.
 
 **Gates:** Review nur spielsichtbar/nicht trivial. Verifier-Subagent nur wenn Suite nicht grün / kein Handoff / Nachcode. Physisch nur auf User-Anforderung. Git: commit + push (Tag via CI).
 
@@ -28,7 +28,7 @@ Planner nur bei Bugs/Art-Dateien/Multi-System/unklarem Scope. Sonst Stub + Imple
 
 ## Repro & RCA (Pflicht bei Typ = Bugfix)
 
-Vor Phase 2. Features: weglassen oder „n/a“.
+Vor Phase 2. Zuerst Plan-Modus (RCA vorlegen, keine Writes); nach Freigabe im Agent-Modus diesen Abschnitt füllen. Features: weglassen oder „n/a“.
 
 ### Reproduktion
 

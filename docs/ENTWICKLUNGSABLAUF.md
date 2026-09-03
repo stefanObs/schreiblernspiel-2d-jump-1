@@ -18,12 +18,16 @@ flowchart TB
   Slicer --> Next[Naechster_Slice]
   Parent --> Bug0{Bug?}
   Next --> Bug0
-  Bug0 -->|ja| RCA[Phase0_RCA]
+  Bug0 -->|ja| RcaMode[SwitchMode_plan_RCA]
   Bug0 -->|nein| PlanQ{Planner?}
-  RCA --> PlanQ
-  PlanQ -->|ja| Planner[feature-planner]
+  RcaMode --> RcaOut[RCA_ohne_Dateien]
+  RcaOut --> RcaWrite[Agent_schreibt_RCA]
+  RcaWrite --> PlanQ
+  PlanQ -->|ja| PlanMode[SwitchMode_plan]
   PlanQ -->|nein| Impl[Umsetzen_Tests]
-  Planner --> Impl
+  PlanMode --> PlanOut[Plan_ohne_Dateien]
+  PlanOut --> Write[Agent_schreibt_Slice_md]
+  Write --> Impl
   Impl --> ArtQ{Art_ja_plus_Dateinamen?}
   ArtQ -->|ja| Art[comic-rettung-art]
   ArtQ -->|nein_Platzhalter_ok| RevQ
@@ -91,30 +95,48 @@ Slices nacheinander: Ablauf 0–4 + Git pro Slice. **Hotfix** = Fast-Path, ein S
 
 **Wann:** Bug, Verify-/Test-Fail, Crash, Regression, Review-Finding mit Fehlverhalten — **bevor** Phase 2 dieses Slices.
 
-**Wer:** Hauptagent (Tests/Logs). Ergebnis im Slice („Repro & RCA“) oder `docs/plans/bugs/<kurzname>.md`.
+**Wer:** Hauptagent (Tests/Logs). Ergebnis im Slice („Repro & RCA“) oder `docs/plans/bugs/<kurzname>.md` — **erst im Agent-Modus nach Freigabe**.
 
-1. Reproduzieren (Schritte, erwartet/tatsächlich, failender Test bevorzugt) → bestätigt oder nicht reproduzierbar (kein Blind-Fix)
-2. RCA: Ursache, Nicht-Ursache, Fix-Richtung, Risiken
-3. Dokumentieren, dann erst Plan/Implement
+### Plan-Modus zuerst (Pflicht)
 
-**Verboten:** Verdachts-Fixes ohne Repro (außer Hotfix + RCA-Nachzug); unrelated Änderungen; nächsten Slice vor Pass des aktuellen.
+1. **Sofort** in den Cursor-**Plan-Modus** wechseln (`SwitchMode` → `plan`). Repro/RCA **nicht** vorher in Dateien schreiben.
+2. Im Plan-Modus: reproduzieren (read-only/tests soweit der Modus es erlaubt), Hypothesen, Ursache, Nicht-Ursache, Fix-Richtung, Risiken vorlegen. **Keine** Repo-Writes.
+3. **Bei Unklarheit immer nachfragen** (`AskQuestion` oder klare Rückfrage) — nicht raten, Plan/RCA nicht still festlegen. Gilt bei zwei Varianten, fehlender Repro, unklarer Ursache, widersprüchlichen Logs.
+4. Nach User-Freigabe und **zurück im Agent-Modus:** erst dann Repro & RCA ins Slice-File oder `docs/plans/bugs/<kurzname>.md` schreiben.
 
-Findings aus Phase 3/4 die Bugs sind: erneut Phase 0, dann Fix, dann Review/Verify dieses Slices wiederholen.
+Pflichtinhalt der RCA (nach dem Schreiben):
+
+1. Reproduktion (Schritte, erwartet/tatsächlich, failender Test bevorzugt) → bestätigt oder nicht reproduzierbar (kein Blind-Fix)
+2. Ursache, Nicht-Ursache, Fix-Richtung, Risiken
+
+**Verboten:** Verdachts-Fixes ohne Repro (außer Hotfix + RCA-Nachzug); unrelated Änderungen; nächsten Slice vor Pass des aktuellen; RCA-Dateien schreiben solange noch Plan-Modus.
+
+Findings aus Phase 3/4 die Bugs sind: erneut Phase 0 (wieder Plan-Modus zuerst), dann Fix, dann Review/Verify dieses Slices wiederholen.
 
 ---
 
 ## Phase 1 — Plan (oft überspringen)
 
 **Wer:** Hauptagent oder `feature-planner`  
-**Input/Output:** genau ein Slice-File.
+**Input:** genau ein Slice aus dem INDEX.  
+**Output:** dasselbe Slice-File, ausgebaut nach `_TEMPLATE.md` — **erst im Agent-Modus nach Plan-Freigabe**.
 
-**Skip:** Stub hat Feature + In + Nicht **und** Änderung offensichtlich. Implementer/Parent ergänzt Testplan/Akzeptanz in derselben Datei.
+**Skip:** Stub hat Feature + In + Nicht **und** Änderung offensichtlich. Implementer/Parent ergänzt Testplan/Akzeptanz in derselben Datei. Kein Plan-Modus nötig.
 
 **Planner behalten:** Bugs (RCA), Art mit echten Dateien, Multi-System, unklarer Scope.
 
-Voller Plan (siehe `_TEMPLATE.md`): Ziel, Scope, Systeme, Schritte, Testplan (automatisiert Pflicht), Art-Bedarf mit **konkreten Dateinamen** oder „keine“, Akzeptanz, bei Bugs Repro & RCA.
+### Plan-Modus zuerst (Pflicht, wenn Planner läuft)
+
+1. **Sofort** in den Cursor-**Plan-Modus** wechseln (`SwitchMode` → `plan`). Nicht vorher Slice-Dateien vollschreiben.
+2. Im Plan-Modus: recherchieren, Plan vorlegen (Ziel, Scope, Schritte, Tests, Art-Dateinamen, Gates). **Keine** Repo-Writes.
+3. **Bei Unklarheit immer nachfragen** (`AskQuestion` wenn verfügbar, sonst klare Rückfrage). Nicht raten, nicht still festlegen. Mindestens bei: Scope In/Nicht, UX/Pause/Pen, Rätselregeln, Technik, Art, Akzeptanz.
+4. Nach User-Freigabe und **zurück im Agent-Modus:** erst dann `S<nn>-<slug>.md` nach `_TEMPLATE.md` schreiben.
+
+**Verboten:** Annahmen als beschlossene Sache im Plan oder in Slice-Dateien, ohne sie als Frage markiert zu haben. Innerhalb einer Umsetzung neu auftauchende Unklarheit → wieder Plan-Modus + Frage.
 
 Ohne Feature+In+Nicht keine Implementierung (außer Hotfix). Bei Bugs ohne Phase 0 keine Phase 2. Planner darf Slices nicht neu schneiden.
+
+Voller Plan-Inhalt: Ziel, Scope, Systeme, Schritte, Testplan (automatisiert Pflicht), Art-Bedarf mit **konkreten Dateinamen** oder „keine“, Akzeptanz, bei Bugs Repro & RCA.
 
 ---
 
@@ -172,19 +194,19 @@ Die Action `Laufnummer` (Push auf `master`) zählt in `version.txt` hoch, commit
 | Name | Wann starten |
 |------|----------------|
 | `task-slicer` | ≥2 Slices oder unklarer Scope — nicht Fast-Path |
-| `feature-planner` | Bugs / Art-Dateien / Multi-System / unklar |
+| `feature-planner` | Bugs / Art-Dateien / Multi-System / unklar; zuerst Plan-Modus, Dateien erst im Agent-Modus |
 | `feature-implementer` | Nicht Fast-Path; ein Slice inkl. Tests |
 | `comic-rettung-art` | Nur `Art: ja` + Dateinamen im Slice |
 | `code-reviewer` | Spielsichtbar und nicht trivial |
 | `automated-verifier` | Suite nicht grün / kein Handoff / Nachcode nach Review / User will Verify |
 
-Orchestration: Hauptagent. Fast-Path oder Slicer, dann pro Slice 0 → (1) → 2 → (3) → (4) → Git.
+Orchestration: Hauptagent. Fast-Path oder Slicer, dann pro Slice 0 (Plan-Modus, dann RCA schreiben) → (1: Plan-Modus, dann Slice-File) → 2 → (3) → (4) → Git.
 
 ---
 
 ## Hotfix
 
-User sagt „Hotfix“ / „nur schnell fixen“ → Fast-Path, ein Slice. Repro versuchen; RCA kurz im Slice/Commit. Fehlt Repro: kennzeichnen, RCA nachziehen. Review/Verifier nur nach den Skip-Regeln oben (nicht pauschal Pflicht).
+User sagt „Hotfix“ / „nur schnell fixen“ → Fast-Path, ein Slice. Repro versuchen; RCA zuerst im Plan-Modus, nach Freigabe kurz ins Slice/Commit. Fehlt Repro: kennzeichnen, RCA nachziehen. Review/Verifier nur nach den Skip-Regeln oben (nicht pauschal Pflicht).
 
 ---
 
