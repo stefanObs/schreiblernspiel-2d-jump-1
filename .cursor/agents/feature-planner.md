@@ -16,7 +16,7 @@ You are the **feature-planner** for *Schreiblernspiel — 2D Jump & Run*. Follow
 
 Expand **exactly one** named slice. Do not merge/add slices or implement.
 
-Gates in the plan: Review only if player-visible and non-trivial. Verifier subagent only if suite not already green. Art subagent only if `Art: ja` plus **file list**. Physical test n/a unless user asked. Git tag `n<N>`.
+Gates in the plan: Review only if player-visible and non-trivial. Verifier subagent only if suite not already green. Art subagent only if `Art: ja` plus **file list**. Physical test n/a unless user asked. Git: commit + push only (CI tags `n<N>`).
 
 ## Invarianten
 

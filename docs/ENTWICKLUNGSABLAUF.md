@@ -2,7 +2,7 @@
 
 Verbindlicher Ablauf für Features und größere Änderungen am *Schreiblernspiel — 2D Jump & Run*.
 
-**Stack:** Browser · **Konzept:** [`docs/KONZEPT.md`](KONZEPT.md) · **Art:** Stil C · **Git:** nach jedem Slice commit + push + Tag `n<laufnummer>` (fortlaufend, kein SemVer)
+**Stack:** Browser · **Konzept:** [`docs/KONZEPT.md`](KONZEPT.md) · **Art:** Stil C · **Git:** nach jedem Slice commit + push (kein Taggen im Agent). Laufnummer `n<N>` setzt die GitHub Action [`.github/workflows/laufnummer.yml`](../.github/workflows/laufnummer.yml)
 
 **Test-Default:** Headless- und automatisierte Tests reichen. **Physisches Spielen** nur auf **explizite User-Anforderung**.
 
@@ -31,7 +31,7 @@ flowchart TB
   RevQ -->|ja| Review[code-reviewer]
   RevQ -->|nein| Green
   Review --> Green{Suite_gruen_kein_Nachcode?}
-  Green -->|ja| Git[Commit_Push_nTag]
+  Green -->|ja| Git[Commit_Push]
   Green -->|nein| Verify[automated-verifier]
   Verify --> Git
   Git --> More{Mehr_Slices?}
@@ -51,7 +51,7 @@ flowchart TB
 
 **Wer:** Hauptagent.
 
-**Was:** Mini-INDEX (`docs/plans/<kurzname>/INDEX.md`, eine Zeile S01) + Stub mit Feature + In + Nicht → umsetzen → automatisierte Tests (falls Code) → kurzer Selbstcheck (10 Zeilen: Akzeptanz, Suite grün ja/nein) → Git (`n<laufnummer>`).
+**Was:** Mini-INDEX (`docs/plans/<kurzname>/INDEX.md`, eine Zeile S01) + Stub mit Feature + In + Nicht → umsetzen → automatisierte Tests (falls Code) → kurzer Selbstcheck (10 Zeilen: Akzeptanz, Suite grün ja/nein) → commit + push. Tagging macht CI.
 
 INDEX trotzdem anlegen. Ohne INDEX keine Lieferung der Gesamtaufgabe.
 
@@ -159,14 +159,11 @@ Pass (oder User-Override) → Git → INDEX `erledigt` → nächster Slice.
 
 ---
 
-## Git — Laufnummer
+## Git
 
-Nach Pass jedes Slices:
+Nach Pass jedes Slices: **commit + push** auf den Tracking-Branch. **Nicht** lokal taggen.
 
-1. commit + push auf den Tracking-Branch
-2. Tag `n<N>` setzen und pushen (`git tag n<N> && git push origin n<N>`)
-
-**N** = letzte existierende Tag-Nummer `n*` plus 1. Noch kein Tag → `n1`. Kein SemVer (`v0.1.0` o. Ä.).
+Die Action `Laufnummer` (Push auf `master`) zählt in `version.txt` hoch, committet `chore: n<N>` und setzt Tag `n<N>`. Commits mit dieser Message lösen die Action nicht erneut aus.
 
 ---
 

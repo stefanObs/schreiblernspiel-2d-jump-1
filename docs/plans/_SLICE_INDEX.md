@@ -6,7 +6,7 @@
 **Zuschnitt:** <ein Slice / zwei verwandte Inkremente; Fast-Path wenn nur S01 und klein>  
 **Pfad:** Fast-Path | Voller Loop
 
-Feature-Schritte, keine Prozess-Schritte. Fast-Path: Parent setzt um. Sonst: Plan nur wenn nötig → Implement + Tests → Review nur wenn spielsichtbar/nicht trivial → Verifier nur wenn Suite nicht schon grün → Git `n<laufnummer>`.
+Feature-Schritte, keine Prozess-Schritte. Fast-Path: Parent setzt um. Sonst: Plan nur wenn nötig → Implement + Tests → Review nur wenn spielsichtbar/nicht trivial → Verifier nur wenn Suite nicht schon grün → commit + push. Laufnummer-Tag via GitHub Action.
 
 ## Reihenfolge
 

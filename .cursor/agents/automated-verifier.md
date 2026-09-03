@@ -17,7 +17,7 @@ Otherwise: run suite once if needed; docs-only = read-through, no game launch. E
 
 **Phase 4b:** execute Surface/Pen/manual **only** if the user asked. Else list remaining manual checks without running them.
 
-Do not set INDEX `erledigt` (parent after Git). Git tag is `n<N>` (parent).
+Do not set INDEX `erledigt` (parent after Git). Do not create version tags (`n<N>` is CI).
 
 ## Invarianten
 

@@ -1,0 +1,50 @@
+name: Laufnummer
+
+on:
+  push:
+    branches: [master]
+
+permissions:
+  contents: write
+
+concurrency:
+  group: laufnummer-master
+  cancel-in-progress: false
+
+jobs:
+  bump-and-tag:
+    if: ${{ !startsWith(github.event.head_commit.message, 'chore: n') }}
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Nächste Laufnummer ermitteln, version.txt schreiben, taggen
+        env:
+          GIT_AUTHOR_NAME: github-actions[bot]
+          GIT_AUTHOR_EMAIL: 41898282+github-actions[bot]@users.noreply.github.com
+          GIT_COMMITTER_NAME: github-actions[bot]
+          GIT_COMMITTER_EMAIL: 41898282+github-actions[bot]@users.noreply.github.com
+        run: |
+          set -euo pipefail
+          git fetch --tags --force origin
+          last_tag="$(git tag -l 'n*' | sed 's/^n//' | awk '/^[0-9]+$/' | sort -n | tail -1)"
+          last_file=""
+          if [[ -f version.txt ]]; then
+            last_file="$(tr -d '[:space:]' < version.txt || true)"
+          fi
+          last=0
+          for v in "${last_tag:-}" "${last_file:-}"; do
+            if [[ "$v" =~ ^[0-9]+$ ]] && (( v > last )); then
+              last="$v"
+            fi
+          done
+          next=$((last + 1))
+          printf '%s\n' "$next" > version.txt
+          git add version.txt
+          git commit -m "chore: n${next}"
+          git tag "n${next}"
+          git push origin HEAD:master
+          git push origin "n${next}"
+          echo "Tagged n${next}"

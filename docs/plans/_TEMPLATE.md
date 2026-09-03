@@ -11,7 +11,7 @@
 
 Planner nur bei Bugs/Art-Dateien/Multi-System/unklarem Scope. Sonst Stub + Implementer ergänzt Testplan/Akzeptanz hier. INDEX: `offen` → `in Arbeit` → `erledigt`.
 
-**Gates:** Review nur spielsichtbar/nicht trivial. Verifier-Subagent nur wenn Suite nicht grün / kein Handoff / Nachcode. Physisch nur auf User-Anforderung. Git-Tag `n<laufnummer>`.
+**Gates:** Review nur spielsichtbar/nicht trivial. Verifier-Subagent nur wenn Suite nicht grün / kein Handoff / Nachcode. Physisch nur auf User-Anforderung. Git: commit + push (Tag via CI).
 
 ## Ziel
 
