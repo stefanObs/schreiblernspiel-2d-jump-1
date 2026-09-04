@@ -4,11 +4,11 @@ import { shouldKeepWorldPaused } from "../src/logic/pause";
 import { answersMatch, normalizeAnswer } from "../src/logic/normalizeAnswer";
 import { matchPuzzle } from "../src/logic/matchPuzzle";
 import { canJump, combineMove, jumpVelocity, moveSpeed, RESPAWN } from "../src/logic/playerRules";
-import { ANLAUT_TILES } from "../src/logic/anlaut";
+import { ANLAUT_REQUIRED_IDS, ANLAUT_TILES, phoneticLautOnly } from "../src/logic/anlaut";
 import { TRACE_PASS, templatePath, traceScore } from "../src/logic/traceScore";
 import { builtinPuzzles, exportPuzzlesJson, freeTransformPuzzle, parsePuzzlesJson } from "../src/logic/puzzleStore";
 import { motifArtPath, motifArtPaths } from "../src/logic/motifArt";
-import { MECH_ART, MECH_CHARS, textureFor } from "../src/logic/mechCatalog";
+import { MECH_ART, MECH_CHARS, alternateShape, artPublicPath, shapeDisplayName, textureFor } from "../src/logic/mechCatalog";
 import type { Puzzle } from "../src/logic/puzzleTypes";
 import { starFillLevels, starsFromWrongAttempts } from "../src/logic/starRating";
 import {
@@ -33,9 +33,12 @@ import {
   effectiveWritingUi,
   getEffectiveWritingMode,
   getSessionWritingModeOverride,
+  isDebugMode,
+  loadDebugMode,
   loadWritingMode,
   modeAppliesToPuzzleType,
   parseWritingMode,
+  resetDebugModeCacheForTests,
   saveWritingMode,
   setDebugMode,
   setSessionWritingModeOverride,
@@ -138,21 +141,29 @@ describe("speech policy", () => {
 });
 
 describe("anlaut", () => {
-  it("has spaced letter forms, phonetic speak, and image — no autofill fields", () => {
+  it("has full catalog with one phonetic laut per tile (no wie / letter names)", () => {
+    expect(ANLAUT_TILES.length).toBeGreaterThanOrEqual(ANLAUT_REQUIRED_IDS.length);
+    for (const id of ANLAUT_REQUIRED_IDS) {
+      expect(ANLAUT_TILES.some((t) => t.id === id)).toBe(true);
+    }
     expect(
       ANLAUT_TILES.every(
-        (t) => t.upper && t.lower && t.speak && t.clipKey && t.image && t.word,
+        (t) => t.upper && t.lower && t.speak && t.word && t.region && !/\bwie\b/i.test(t.speak),
       ),
     ).toBe(true);
-    expect(ANLAUT_TILES.every((t) => !/^[A-ZÄÖÜ]$/.test(t.speak.trim().charAt(0)) || t.speak.includes("wie"))).toBe(
-      true,
-    );
+    expect(ANLAUT_TILES.every((t) => phoneticLautOnly(t.speak) === t.speak.trim())).toBe(true);
     const a = ANLAUT_TILES.find((t) => t.id === "a")!;
-    expect(a.speak.toLowerCase().startsWith("aaa")).toBe(true);
+    expect(a.speak).toBe("aaa");
     expect(a.upper).toBe("A");
     expect(a.lower).toBe("a");
     const b = ANLAUT_TILES.find((t) => t.id === "b")!;
-    expect(b.speak.toLowerCase().startsWith("buh")).toBe(true);
+    expect(b.speak).toBe("buh");
+    const green = ANLAUT_TILES.find((t) => t.id === "e-silent")!;
+    expect(green.accent).toBe("green");
+  });
+  it("strips legacy wie-phrases to a single laut", () => {
+    expect(phoneticLautOnly("aaa wie Affe")).toBe("aaa");
+    expect(phoneticLautOnly("buh")).toBe("buh");
   });
 });
 
@@ -211,9 +222,8 @@ describe("writingMode", () => {
     expect(modeAppliesToPuzzleType("math")).toBe(false);
     expect(modeAppliesToPuzzleType("trace")).toBe(false);
   });
-  it("toggles debug and uses session override without saving", () => {
-    setDebugMode(false);
-    setSessionWritingModeOverride(null);
+  it("toggles debug, persists in storage, and uses session override without saving writing mode", () => {
+    resetDebugModeCacheForTests();
     const mem = new Map<string, string>();
     const storage = {
       getItem: (k: string) => mem.get(k) ?? null,
@@ -228,11 +238,17 @@ describe("writingMode", () => {
       length: 0,
     } as Storage;
     saveWritingMode("learn", storage);
-    expect(toggleDebugMode()).toBe(true);
+    expect(toggleDebugMode(storage)).toBe(true);
+    expect(loadDebugMode(storage)).toBe(true);
     setSessionWritingModeOverride("free");
     expect(getEffectiveWritingMode(storage)).toBe("free");
     expect(loadWritingMode(storage)).toBe("learn");
-    setDebugMode(false);
+
+    resetDebugModeCacheForTests();
+    expect(isDebugMode(storage)).toBe(true);
+
+    setDebugMode(false, storage);
+    expect(loadDebugMode(storage)).toBe(false);
     expect(getSessionWritingModeOverride()).toBeNull();
     expect(getEffectiveWritingMode(storage)).toBe("learn");
   });
@@ -364,6 +380,13 @@ describe("mech catalog", () => {
     expect(MECH_CHARS).toEqual(["bolt", "marina", "rush"]);
     expect(textureFor("marina", "mech")).toBe(MECH_ART.marina.mechKey);
     expect(textureFor("rush", "auto")).toBe(MECH_ART.rush.autoKey);
+  });
+  it("maps the transform button to the other form of the current mech", () => {
+    expect(alternateShape("mech")).toBe("auto");
+    expect(alternateShape("auto")).toBe("mech");
+    expect(shapeDisplayName("auto")).toBe("Auto");
+    expect(artPublicPath("bolt", "auto")).toBe("/art/bolt_vehicle_side.png");
+    expect(artPublicPath("marina", "mech")).toBe("/art/marina_mech_side.png");
   });
 });
 

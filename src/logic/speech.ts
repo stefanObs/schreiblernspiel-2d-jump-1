@@ -167,26 +167,14 @@ function speakWithSynthOnce(text: string): void {
 }
 
 /**
- * Anlaut tile: speak once, lautiert (aaa/buh/…), not letter names.
- * Prefer phonetic TTS; bundled clips are fallback only.
+ * Anlaut tile: speak exactly one phonetic laut (aaa/buh/sch), never
+ * alphabet names and never „A wie Affe“. Clip keys with Bildwort are ignored.
  */
-export function speakAnlaut(clipKey: string, phoneticSpeak: string): void {
+export function speakAnlaut(_clipKey: string, phoneticSpeak: string): void {
   const phonetic = phoneticSpeak.trim();
-  const key = clipKey.trim();
-  if (!phonetic && !key) return;
-  if (synth() && phonetic) {
-    speakWithSynthOnce(phonetic);
-    return;
-  }
-  const url = key ? voiceClipPath(key) : undefined;
-  if (url) {
-    clearSpeakSchedule();
-    playClipOnce(url).catch(() => {
-      if (phonetic) speakWithSynthOnce(phonetic);
-    });
-    return;
-  }
-  if (phonetic) speakWithSynthOnce(phonetic);
+  if (!phonetic) return;
+  // Always synth the laut only — bundled „X wie Wort“ clips must not play.
+  speakWithSynthOnce(phonetic);
 }
 
 export function speakGerman(text: string): void {

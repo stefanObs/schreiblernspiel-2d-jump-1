@@ -1,4 +1,4 @@
-import { ANLAUT_TILES } from "./logic/anlaut";
+import { phoneticLautOnly, tilesInRegion, type AnlautTile } from "./logic/anlaut";
 import { matchPuzzle } from "./logic/matchPuzzle";
 import { motifArtPaths } from "./logic/motifArt";
 import { starFillLevels, starsFromWrongAttempts } from "./logic/starRating";
@@ -37,7 +37,9 @@ let speakFn: SpeakFn = speakGerman;
 let autoSpokeThisOpen = false;
 
 export function isOverlayOpen(): boolean {
-  return !document.getElementById("puzzle-overlay")?.classList.contains("hidden");
+  const puzzleOpen = !document.getElementById("puzzle-overlay")?.classList.contains("hidden");
+  const ballOpen = !document.getElementById("ballkanone-overlay")?.classList.contains("hidden");
+  return Boolean(puzzleOpen || ballOpen);
 }
 
 export function openPuzzle(puzzle: Puzzle, handlers: OverlayHandlers): void {
@@ -468,37 +470,92 @@ function renderWritingHints(host: HTMLElement, puzzle: Puzzle, stage: HintStage)
 
 function renderAnlaut(host: HTMLElement, _speak: SpeakFn): void {
   host.innerHTML = "";
-  for (const tile of ANLAUT_TILES) {
-    const b = document.createElement("button");
-    b.type = "button";
-    b.className = "anlaut-tile";
-    b.setAttribute("aria-label", `${tile.upper} ${tile.lower}, ${tile.word}`);
+  host.classList.add("schreibtabelle");
 
-    const letters = document.createElement("span");
-    letters.className = "anlaut-letters";
-    const upper = document.createElement("span");
-    upper.className = "anlaut-upper";
-    upper.textContent = tile.upper;
+  const board = document.createElement("div");
+  board.className = "schreibtabelle-board";
+  board.setAttribute("role", "group");
+  board.setAttribute("aria-label", "Schreibtabelle");
+
+  const sidebar = section("schreibtabelle-sidebar", "Sonderlaute");
+  for (const t of tilesInRegion("sidebar")) sidebar.appendChild(tileButton(t));
+
+  const center = document.createElement("div");
+  center.className = "schreibtabelle-center";
+
+  const vowels = section("schreibtabelle-vowels", "Vokale");
+  for (const t of tilesInRegion("vowels")) vowels.appendChild(tileButton(t));
+
+  const arches = document.createElement("div");
+  arches.className = "schreibtabelle-arches";
+  const main = section("schreibtabelle-consonants-main", "Mitlaute");
+  for (const t of tilesInRegion("consonantsMain")) main.appendChild(tileButton(t));
+  const right = section("schreibtabelle-consonants-right", "Weitere Laute");
+  for (const t of tilesInRegion("consonantsRight")) right.appendChild(tileButton(t));
+  arches.append(main, right);
+
+  center.append(vowels, arches);
+
+  const diph = section("schreibtabelle-diphthongs", "Diphthonge");
+  for (const t of tilesInRegion("diphthongs")) diph.appendChild(tileButton(t));
+
+  board.append(sidebar, center, diph);
+  host.appendChild(board);
+}
+
+function section(className: string, label: string): HTMLElement {
+  const el = document.createElement("div");
+  el.className = className;
+  el.setAttribute("role", "group");
+  el.setAttribute("aria-label", label);
+  return el;
+}
+
+function tileButton(tile: AnlautTile): HTMLButtonElement {
+  const b = document.createElement("button");
+  b.type = "button";
+  b.className = "anlaut-tile";
+  b.dataset.anlautId = tile.id;
+  if (tile.accent) b.classList.add(`anlaut-accent-${tile.accent}`);
+  b.setAttribute("aria-label", `${tile.upper} ${tile.lower}, Laut ${tile.speak}`);
+
+  const letters = document.createElement("span");
+  letters.className = "anlaut-letters";
+  const upper = document.createElement("span");
+  upper.className = "anlaut-upper";
+  upper.textContent = tile.upper;
+  letters.appendChild(upper);
+  if (tile.lower && tile.lower !== tile.upper) {
     const lower = document.createElement("span");
     lower.className = "anlaut-lower";
     lower.textContent = tile.lower;
-    letters.append(upper, lower);
+    letters.appendChild(lower);
+  }
 
+  if (tile.image) {
     const img = document.createElement("img");
     img.className = "anlaut-img";
     img.src = tile.image;
     img.alt = "";
     img.decoding = "async";
     img.loading = "lazy";
-
-    const word = document.createElement("span");
-    word.className = "anlaut-word";
-    word.textContent = tile.word;
-
-    b.append(letters, img, word);
-    b.addEventListener("click", () => speakAnlaut(tile.clipKey, tile.speak));
-    host.appendChild(b);
+    b.append(letters, img);
+  } else {
+    const ph = document.createElement("span");
+    ph.className = "anlaut-placeholder";
+    ph.textContent = tile.upper;
+    ph.setAttribute("aria-hidden", "true");
+    b.append(letters, ph);
   }
+
+  const word = document.createElement("span");
+  word.className = "anlaut-word";
+  word.textContent = tile.word;
+  b.appendChild(word);
+
+  const laut = phoneticLautOnly(tile.speak);
+  b.addEventListener("click", () => speakAnlaut("", laut));
+  return b;
 }
 
 function setupTrace(canvas: HTMLCanvasElement, puzzle: Puzzle, finishOk: () => void): void {
