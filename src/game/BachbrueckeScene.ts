@@ -176,7 +176,8 @@ export class BachbrueckeScene extends Phaser.Scene {
       this.anims.create({
         key: art.walkAnim,
         frames: art.walkFrames.map((key) => ({ key })),
-        frameRate: 3,
+        // ~8 fps: readable comic walk without stuttering between frames
+        frameRate: 8,
         repeat: -1,
       });
     }
@@ -658,33 +659,34 @@ export class BachbrueckeScene extends Phaser.Scene {
     const art = MECH_ART[this.character];
     if (look !== "mech") {
       if (this.player.anims.isPlaying) this.player.anims.stop();
-      if (this.player.texture.key !== art.autoKey) {
-        this.player.setTexture(art.autoKey);
-        this.player.setDisplaySize(AUTO_SIZE.w, AUTO_SIZE.h);
-        this.player.setOrigin(0.5, 1);
-        this.baseScale = { x: this.player.scaleX, y: this.player.scaleY };
-        this.syncPlayerBody();
-      }
+      this.ensurePlayerTexture(art.autoKey, AUTO_SIZE.w, AUTO_SIZE.h);
       return;
     }
     if (pose === "walk") {
-      if (this.player.anims.currentAnim?.key !== art.walkAnim || !this.player.anims.isPlaying) {
+      const alreadyWalking =
+        this.player.anims.isPlaying && this.player.anims.currentAnim?.key === art.walkAnim;
+      if (!alreadyWalking) {
+        // Size once before play so frame swaps keep a stable display box.
+        this.ensurePlayerTexture(art.walkFrames[0]!, MECH_SIZE.w, MECH_SIZE.h);
         this.player.play(art.walkAnim, true);
-        this.player.setDisplaySize(MECH_SIZE.w, MECH_SIZE.h);
-        this.player.setOrigin(0.5, 1);
-        this.baseScale = { x: this.player.scaleX, y: this.player.scaleY };
-        this.syncPlayerBody();
       }
       return;
     }
     if (this.player.anims.isPlaying) this.player.anims.stop();
-    if (this.player.texture.key !== art.mechKey) {
-      this.player.setTexture(art.mechKey);
-      this.player.setDisplaySize(MECH_SIZE.w, MECH_SIZE.h);
-      this.player.setOrigin(0.5, 1);
-      this.baseScale = { x: this.player.scaleX, y: this.player.scaleY };
-      this.syncPlayerBody();
-    }
+    this.ensurePlayerTexture(art.mechKey, MECH_SIZE.w, MECH_SIZE.h);
+  }
+
+  /** Apply texture + display size only when they change (avoids idle↔walk jitter). */
+  private ensurePlayerTexture(key: string, w: number, h: number): void {
+    const sameTex = this.player.texture.key === key;
+    const sameSize =
+      Math.round(this.player.displayWidth) === w && Math.round(this.player.displayHeight) === h;
+    if (sameTex && sameSize) return;
+    this.player.setTexture(key);
+    this.player.setDisplaySize(w, h);
+    this.player.setOrigin(0.5, 1);
+    this.baseScale = { x: this.player.scaleX, y: this.player.scaleY };
+    this.syncPlayerBody();
   }
 
   private playJump(): void {
