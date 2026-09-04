@@ -105,6 +105,7 @@ export function landOverlay(sinceLandMs: number): { x: number; y: number } | nul
 }
 
 export function spawnMotion(kind: SpawnKind): { fromY: number; duration: number } {
-  if (kind === "rope" || kind === "ladder") return { fromY: -130, duration: 420 };
+  if (kind === "rope") return { fromY: -220, duration: 520 };
+  if (kind === "ladder") return { fromY: -130, duration: 420 };
   return { fromY: -72, duration: 500 };
 }

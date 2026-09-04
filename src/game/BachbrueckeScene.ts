@@ -19,8 +19,10 @@ import {
   takeoffOverlay,
   type SpawnKind,
 } from "../logic/animState";
-import { MECH_ART, MECH_CHARS, characterDisplayName, textureFor } from "../logic/mechCatalog";
+import { MECH_ART, MECH_CHARS, alternateShape, artPublicPath, characterDisplayName, shapeDisplayName, textureFor } from "../logic/mechCatalog";
+import { isDebugMode } from "../logic/writingMode";
 import { isOverlayOpen, openPuzzle } from "../puzzleUi";
+import { openBallkanone } from "../minigames/ballkanone";
 import { unlockSpeech } from "../logic/speech";
 
 const S = 1.5;
@@ -78,6 +80,7 @@ export class BachbrueckeScene extends Phaser.Scene {
     }
     this.load.image("prop-bridge", "art/prop_bridge.png");
     this.load.image("prop-rope", "art/prop_rope.png");
+    this.load.image("prop-rope-world", "art/prop_rope_world.png");
     this.load.image("prop-ladder", "art/prop_ladder.png");
     this.load.image("station-sign", "art/station_sign.png");
     this.load.image("prop-tree", "art/prop_tree.png");
@@ -105,7 +108,8 @@ export class BachbrueckeScene extends Phaser.Scene {
     this.hiddenParts = [
       // Same thickness as grass banks; span the full stream gap (u(760)→u(1040)).
       this.block(u(900), WALK_Y + u(40), u(340), u(80), 0x8d6e63, false),
-      this.block(u(1480), u(500), u(28), u(220), 0x6d4c41, false),
+      // Thin world rope from sky (climb/swing bodies land in later slices).
+      this.block(u(1480), GROUND / 2, u(10), GROUND, 0x6d4c41, false),
       this.block(u(2080), u(500), u(36), u(220), 0xffcc80, false),
       this.block(u(1980), u(500), u(200), u(28), 0x81c784, false),
     ];
@@ -115,6 +119,7 @@ export class BachbrueckeScene extends Phaser.Scene {
       (p.body as Phaser.Physics.Arcade.StaticBody).enable = false;
     }
 
+    const ropeH = GROUND - u(8);
     this.propViews = [
       this.add
         .image(u(900), WALK_Y, "prop-bridge")
@@ -122,7 +127,12 @@ export class BachbrueckeScene extends Phaser.Scene {
         .setDisplaySize(u(340), u(100))
         .setVisible(false)
         .setDepth(6),
-      this.add.image(u(1480), u(500), "prop-rope").setDisplaySize(u(40), u(250)).setVisible(false).setDepth(6),
+      this.add
+        .image(u(1480), 0, "prop-rope-world")
+        .setOrigin(0.5, 0)
+        .setDisplaySize(u(14), ropeH)
+        .setVisible(false)
+        .setDepth(6),
       this.add.image(u(2080), u(500), "prop-ladder").setDisplaySize(u(70), u(250)).setVisible(false).setDepth(6),
       this.add.image(u(1980), u(500), "prop-bridge").setDisplaySize(u(220), u(50)).setVisible(false).setDepth(6),
     ];
@@ -167,6 +177,19 @@ export class BachbrueckeScene extends Phaser.Scene {
     this.bob(goal, u(4), 900);
     this.wireHud();
     this.wireKeyboard();
+    this.wireDebugBallkanone();
+  }
+
+  private wireDebugBallkanone(): void {
+    window.addEventListener("schreiblern:debug-ballkanone", () => {
+      if (!isDebugMode() || this.worldPaused || isOverlayOpen() || this.transforming) return;
+      unlockSpeech();
+      const puzzle =
+        mergedPuzzles().find((p) => p.id === "bach-ballkanone-ball") ??
+        mergedPuzzles().find((p) => p.type === "ballkanone");
+      if (!puzzle) return;
+      this.openStation(puzzle);
+    });
   }
 
   private createAnims(): void {
@@ -211,21 +234,25 @@ export class BachbrueckeScene extends Phaser.Scene {
   }
 
   private placeMeadowDecor(): void {
-    const tufts: [number, number, number][] = [
-      [u(120), u(54), u(40)],
-      [u(260), u(48), u(36)],
-      [u(480), u(58), u(44)],
-      [u(640), u(50), u(38)],
-      [u(1120), u(56), u(42)],
-      [u(1340), u(46), u(34)],
-      [u(1680), u(60), u(46)],
-      [u(1960), u(50), u(38)],
-      [u(2280), u(54), u(40)],
-      [u(2680), u(48), u(36)],
-      [u(2980), u(58), u(44)],
-      [u(3320), u(52), u(40)],
+    // On the black grass line (origin bottom @ GROUND). Avoid stream gap u(760)–u(1040).
+    const lineTufts: [number, number, number][] = [
+      [u(90), u(52), u(38)],
+      [u(210), u(46), u(34)],
+      [u(400), u(56), u(42)],
+      [u(580), u(50), u(36)],
+      [u(700), u(48), u(36)],
+      [u(1100), u(54), u(40)],
+      [u(1260), u(46), u(34)],
+      [u(1520), u(58), u(44)],
+      [u(1760), u(50), u(38)],
+      [u(2050), u(52), u(40)],
+      [u(2340), u(48), u(36)],
+      [u(2620), u(56), u(42)],
+      [u(2900), u(50), u(38)],
+      [u(3220), u(54), u(40)],
+      [u(3480), u(48), u(36)],
     ];
-    for (const [x, w, h] of tufts) {
+    for (const [x, w, h] of lineTufts) {
       this.add
         .image(x, GROUND, "prop-grass-tuft")
         .setOrigin(0.5, 1)
@@ -233,15 +260,19 @@ export class BachbrueckeScene extends Phaser.Scene {
         .setDepth(4);
     }
 
-    const flowers: [number, number, number][] = [
-      [u(200), u(44), u(44)],
-      [u(560), u(40), u(40)],
-      [u(1240), u(46), u(46)],
-      [u(1840), u(42), u(42)],
-      [u(2420), u(48), u(48)],
-      [u(3160), u(44), u(44)],
+    const lineFlowers: [number, number, number][] = [
+      [u(150), u(42), u(42)],
+      [u(340), u(40), u(40)],
+      [u(520), u(44), u(44)],
+      [u(1180), u(42), u(42)],
+      [u(1420), u(46), u(46)],
+      [u(1920), u(40), u(40)],
+      [u(2200), u(44), u(44)],
+      [u(2760), u(42), u(42)],
+      [u(3080), u(46), u(46)],
+      [u(3380), u(40), u(40)],
     ];
-    for (const [x, w, h] of flowers) {
+    for (const [x, w, h] of lineFlowers) {
       const bloom = this.add
         .image(x, GROUND, "prop-flowers")
         .setOrigin(0.5, 1)
@@ -255,6 +286,43 @@ export class BachbrueckeScene extends Phaser.Scene {
         repeat: -1,
         ease: "Sine.easeInOut",
       });
+    }
+
+    // Smaller props in the green bank below the black line.
+    const belowTufts: [number, number, number, number][] = [
+      [u(160), u(36), u(26), u(36)],
+      [u(450), u(34), u(24), u(48)],
+      [u(640), u(38), u(28), u(40)],
+      [u(1200), u(36), u(26), u(52)],
+      [u(1600), u(34), u(24), u(44)],
+      [u(2100), u(38), u(28), u(56)],
+      [u(2500), u(36), u(26), u(38)],
+      [u(3000), u(34), u(24), u(50)],
+      [u(3400), u(36), u(26), u(42)],
+    ];
+    for (const [x, w, h, dy] of belowTufts) {
+      this.add
+        .image(x, GROUND + dy, "prop-grass-tuft")
+        .setOrigin(0.5, 1)
+        .setDisplaySize(w, h)
+        .setAlpha(0.9)
+        .setDepth(2);
+    }
+    const belowFlowers: [number, number, number, number][] = [
+      [u(280), u(32), u(32), u(58)],
+      [u(620), u(30), u(30), u(70)],
+      [u(1300), u(34), u(34), u(62)],
+      [u(1850), u(30), u(30), u(48)],
+      [u(2400), u(32), u(32), u(66)],
+      [u(3150), u(30), u(30), u(54)],
+    ];
+    for (const [x, w, h, dy] of belowFlowers) {
+      this.add
+        .image(x, GROUND + dy, "prop-flowers")
+        .setOrigin(0.5, 1)
+        .setDisplaySize(w, h)
+        .setAlpha(0.88)
+        .setDepth(2);
     }
   }
 
@@ -396,7 +464,8 @@ export class BachbrueckeScene extends Phaser.Scene {
       const w = u(w0);
       const h = u(h0);
       const img = this.add
-        .image(u(x0), GROUND - h / 2 + u(8), key)
+        .image(u(x0), GROUND, key)
+        .setOrigin(0.5, 1)
         .setDisplaySize(w, h)
         .setDepth(3);
       if (key === "prop-house" && i % 3 === 0) img.setTint(0xfff3e0);
@@ -417,6 +486,19 @@ export class BachbrueckeScene extends Phaser.Scene {
   private applyPlayerLook(): void {
     this.applyLookFor(this.character, this.visualShape());
     this.titleLabel?.setText(`Bachbrücke — ${characterDisplayName(this.character)}`);
+    this.syncTransformButton();
+  }
+
+  /** Show the other form of the current mech on the Verwandeln pad. */
+  private syncTransformButton(): void {
+    const target = alternateShape(this.shape);
+    const name = shapeDisplayName(target);
+    const img = document.getElementById("pad-transform-img") as HTMLImageElement | null;
+    const label = document.getElementById("pad-transform-label");
+    const btn = document.getElementById("pad-transform");
+    if (img) img.src = artPublicPath(this.character, target);
+    if (label) label.textContent = name;
+    if (btn) btn.setAttribute("aria-label", `Verwandeln zu ${name}`);
   }
 
   /** Shape used for sprites / poses (auto can look like mech while jumping). */
@@ -470,10 +552,11 @@ export class BachbrueckeScene extends Phaser.Scene {
     const r = this.hiddenParts[index];
     r.setVisible(false);
     const body = r.body as Phaser.Physics.Arcade.StaticBody;
-    body.enable = true;
+    // Rope is visual-only until swing/climb slices attach interaction bodies.
+    body.enable = kind !== "rope";
     // refreshBody/updateFromGameObject re-inserts into the static R-tree correctly;
     // never mutate position/width by hand (that desyncs the tree AABB).
-    body.updateFromGameObject();
+    if (body.enable) body.updateFromGameObject();
     const view = this.propViews[index];
     if (!view) return;
     const destY = view.y;
@@ -493,8 +576,10 @@ export class BachbrueckeScene extends Phaser.Scene {
     const xs: Record<string, { x: number; y: number }> = {
       "bach-bruecke-hear": { x: u(620), y: GROUND - u(50) },
       "bach-seil-motif": { x: u(1280), y: GROUND - u(50) },
+      "bach-ballkanone-ball": { x: u(1480), y: GROUND - u(50) },
       "bach-plus": { x: u(1680), y: u(320) },
       "bach-compare": { x: u(2140), y: GROUND - u(50) },
+      "bach-ballkanone-kanone": { x: u(2260), y: GROUND - u(50) },
       "bach-bolt-name": { x: u(2360), y: GROUND - u(50) },
       "bach-auto": { x: u(2500), y: GROUND - u(50) },
       "bach-marina-name": { x: u(2640), y: GROUND - u(50) },
@@ -740,6 +825,12 @@ export class BachbrueckeScene extends Phaser.Scene {
     this.worldPaused = true;
     this.physics.world.pause();
     this.player.setVelocity(0, 0);
+    if (puzzle.type === "ballkanone") {
+      openBallkanone(puzzle, {
+        onSolved: (p) => this.applyEffect(p),
+      });
+      return;
+    }
     openPuzzle(puzzle, {
       onSolved: (p) => this.applyEffect(p),
     });

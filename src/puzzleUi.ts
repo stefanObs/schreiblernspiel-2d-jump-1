@@ -1,4 +1,5 @@
 import { phoneticLautOnly, tilesInRegion, type AnlautTile } from "./logic/anlaut";
+import { joinLetterSlots, nextEmptySlotIndex } from "./logic/letterSlots";
 import { matchPuzzle } from "./logic/matchPuzzle";
 import { motifArtPaths } from "./logic/motifArt";
 import { starFillLevels, starsFromWrongAttempts } from "./logic/starRating";
@@ -115,26 +116,77 @@ export function openPuzzle(puzzle: Puzzle, handlers: OverlayHandlers): void {
   if (isTrace) {
     setupTrace(trace, puzzle, finishOk);
   } else {
-    input.focus();
+    const useLetterSlots = puzzle.type === "word" || puzzle.type === "transform";
+    const slotsHost = document.getElementById("puzzle-letter-slots");
+    input.classList.toggle("hidden", useLetterSlots);
+    slotsHost?.classList.toggle("hidden", !useLetterSlots);
+    slotsHost?.classList.remove("wrong");
+
+    const slotInputs = useLetterSlots
+      ? (Array.from(
+          document.querySelectorAll<HTMLInputElement>("#puzzle-letter-slots .letter-slot-input"),
+        ) as HTMLInputElement[])
+      : [];
+
+    if (useLetterSlots) {
+      for (const el of slotInputs) {
+        el.value = "";
+        el.classList.remove("wrong");
+      }
+      wireLetterSlots(slotInputs, () => {
+        /* focus only */
+      });
+      slotInputs[0]?.focus();
+    } else {
+      input.focus();
+    }
+
+    const readAnswer = () =>
+      useLetterSlots
+        ? joinLetterSlots(slotInputs.map((el) => el.value))
+        : input.value;
+
+    const markWrong = () => {
+      if (useLetterSlots) slotsHost?.classList.add("wrong");
+      else input.classList.add("wrong");
+    };
+
     const submit = () => {
-      const result = matchPuzzle(puzzle, input.value);
+      const result = matchPuzzle(puzzle, readAnswer());
       if (result.ok) {
         solvedEffect = result.effect === "none" ? puzzle.effect : result.effect;
         finishOk();
       } else {
         wrongAttempts += 1;
-        input.classList.add("wrong");
+        markWrong();
         err.textContent = "Noch einmal versuchen.";
         applyWritingModeUi();
       }
     };
     document.getElementById("puzzle-ok")!.onclick = submit;
-    input.onkeydown = (e) => {
+    const onEnter = (e: KeyboardEvent) => {
       if (e.key === "Enter") submit();
     };
+    input.onkeydown = onEnter;
+    for (const el of slotInputs) el.onkeydown = onEnter;
   }
 
   applyWritingModeUi();
+}
+
+function wireLetterSlots(slots: HTMLInputElement[], _onChange: () => void): void {
+  slots.forEach((el, index) => {
+    el.oninput = () => {
+      const raw = el.value;
+      // Keep last typed character (Pen may insert more briefly).
+      const ch = raw.slice(-1);
+      el.value = ch;
+      if (!ch) return;
+      const values = slots.map((s) => s.value);
+      const next = nextEmptySlotIndex(values, index);
+      if (next >= 0) slots[next]?.focus();
+    };
+  });
 }
 
 /** Re-apply mode UI after Settings / Debug / F1 changes while overlay is open. */

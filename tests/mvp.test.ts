@@ -2,6 +2,7 @@ import { describe, expect, it } from "vitest";
 import { pickGermanVoice, shouldSpeakSolution, voiceClipPath, learnerSpeakText, LEARNER_SPEAK_RATE } from "../src/logic/speech";
 import { shouldKeepWorldPaused } from "../src/logic/pause";
 import { answersMatch, normalizeAnswer } from "../src/logic/normalizeAnswer";
+import { joinLetterSlots, nextEmptySlotIndex } from "../src/logic/letterSlots";
 import { matchPuzzle } from "../src/logic/matchPuzzle";
 import { canJump, combineMove, jumpVelocity, moveSpeed, RESPAWN } from "../src/logic/playerRules";
 import { ANLAUT_REQUIRED_IDS, ANLAUT_TILES, phoneticLautOnly } from "../src/logic/anlaut";
@@ -74,6 +75,18 @@ describe("playerRules", () => {
       right: true,
       jump: true,
     });
+  });
+});
+
+describe("letterSlots", () => {
+  it("joins non-empty slots left to right and skips gaps", () => {
+    expect(joinLetterSlots(["S", "", "E", "", "I", "L"])).toBe("SEIL");
+    expect(joinLetterSlots(["", "S", "E", "I", "L", ""])).toBe("SEIL");
+    expect(joinLetterSlots(["", "", "", "", "", ""])).toBe("");
+  });
+  it("finds the next empty slot after the current index", () => {
+    expect(nextEmptySlotIndex(["S", "e", "", "i", "", ""], 1)).toBe(2);
+    expect(nextEmptySlotIndex(["S", "e", "i", "l", "!", "?"], 0)).toBe(-1);
   });
 });
 
