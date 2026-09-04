@@ -71,6 +71,51 @@ Gilt für: Wort-Magie, Mathe, Transform-Kommandos.
 
 Nachzeichnen: Pause oder starke Zeitlupe — je nachdem, ob Zeichnen auf der laufenden Welt stört. Textfeld-Rätsel immer **harte Pause**.
 
+### 3.4 Spielmodi (Settings)
+
+Das Spiel hat **verschiedene Schreib-Modi**, die in den **Settings** wählbar sind. Der zuletzt gewählte Modus wird **im Browser gespeichert** (z. B. `localStorage`). **Default:** der einfachste Modus (**Buchstaben lernen**).
+
+Die Modi steuern, wie stark Schreiben unterstützt wird (Anzeige, Kästchen, Schreibtabelle). Sie gelten vor allem für **Wort-Magie** und verwandte Schreibaufgaben; Mathe/Nachzeichnen bleiben davon unberührt, sofern nicht anders vermerkt.
+
+| Modus | Hilfe | Lösung sichtbar? | Schreibtabelle | Typische Wörter |
+|-------|--------|------------------|----------------|-----------------|
+| **Buchstaben lernen** | maximal | ja (zum Abschreiben) | ja | kurze, bekannte Wörter |
+| **Schreibtabelle üben** | mittel | erst nach mehreren Versuchen | ja | wie bisher / etwas länger |
+| **Freies Schreiben** | keine | nein | nein | auch schwierigere Wörter |
+
+#### Buchstaben lernen (Default)
+
+- Das Wort wird **gesagt** und **angezeigt**.
+- Das Spiel zeigt das Wort zum Abschreiben: **jeder Buchstabe** steht gemäss der Schreibtabelle in einem **eigenen Kästchen**.
+- Das Kind hört das Wort und kann die Buchstaben **abschreiben**.
+- Schreibtabelle (Anlauttabelle) ist sichtbar.
+
+#### Schreibtabelle üben
+
+- Die **Schreibtabelle** bleibt angezeigt.
+- Die **Lösung wird nicht mehr vorgegeben** (kein fertiges Wort in Kästchen zum Abschreiben).
+- Nach **mehreren Fehlversuchen** erscheint die Lösung als Hilfe (freundlich, ohne Strafe) — danach erneut versuchen oder übernehmen und weitermachen, je nach UI.
+- Hör-Hinweis („Nochmal hören“) bleibt möglich, soweit der Rätsel-Hinweis-Modus es vorsieht.
+
+#### Freies Schreiben
+
+- **Keine Schreibtabelle**, **keine Buchstaben-Kästchen**.
+- Nur Textfeld (und ggf. Hör-/Motiv-Hinweis je nach Station).
+- Es können **schwierigere Wörter** vorkommen (längere Wörter, Umlaute, Sondergruppen).
+
+**Hinweis:** Die bisherigen **Hinweis-Modi** Hören / Motiv (Abschnitt 4.1) bleiben Station-/Level-Eigenschaften. Die Settings-Modi oben sind die **globale Schreib-Unterstützung** und überlagern, wie stark Lösung und Schreibtabelle helfen.
+
+### 3.5 Debug-Modus
+
+Mit **F1** lässt sich ein **Debug-Modus** ein- und ausschalten (Toggle).
+
+Im Debug-Modus:
+
+- Bei **jedem Rätsel** (während der Pause) erscheint ein **Dropdown**, mit dem man sofort zwischen den Schreib-Modi wechseln kann: *Buchstaben lernen* · *Schreibtabelle üben* · *Freies Schreiben*.
+- Der Wechsel gilt für die aktuelle Session-Ansicht und speichert den Settings-Default **nicht**.
+- Debug-UI ist klar als Entwicklerhilfe erkennbar (z. B. kleines Panel), nicht kindgerecht gestaltet nötig.
+- Ohne Debug-Modus ist das Dropdown unsichtbar; Kinder sehen nur den in den Settings gewählten Modus.
+
 ---
 
 ## 4. Rätselarten
@@ -83,7 +128,7 @@ An einer Station löst das Kind ein Wort; der Effekt erscheint in der Welt.
 
 | Modus    | Visuell                                      | Audio                                      |
 |----------|----------------------------------------------|--------------------------------------------|
-| **Hören** | Kein Lösungsmotiv; Mech + Textfeld + Anlauttabelle | Windows-Stimme sagt das Wort (z. B. „Seil“) |
+| **Hören** | Kein Lösungsmotiv; Mech + Textfeld + Schreibtabelle (je nach Spielmodus) | Windows-Stimme sagt das Wort (z. B. „Seil“) |
 | **Motiv** | Großes Motiv (z. B. Seil-Icon), ohne geschriebenes Lösungswort | Kein Vorlesen der Lösung                   |
 
 **Hör-Modus — Wiederholbarkeit:**
@@ -166,9 +211,9 @@ Falsche Form am falschen Ort: Hinweis („Hier brauchst du ein Schiff“), kein 
 
 ---
 
-## 5. Anlauttabelle
+## 5. Schreibtabelle (Anlauttabelle)
 
-Im Schreibmodus ist eine **Anlauttabelle** sichtbar (Vorbild: Leseschlau-Anlauttabelle / Basisschrift, z. B. Lehrmittel Shop TG).
+Im Schreibmodus ist eine **Schreibtabelle** / **Anlauttabelle** sichtbar (Vorbild: Leseschlau-Anlauttabelle / Basisschrift, z. B. Lehrmittel Shop TG) — sofern der gewählte Spielmodus sie vorsieht (Abschnitt 3.4).
 
 Anforderungen:
 
@@ -176,7 +221,7 @@ Anforderungen:
 - Eigene Illustrationen im Mech-Comic-Stil (keine 1:1-Kopie kommerzieller Vorlagen)
 - Tippen auf Kachel: Windows-Stimme spricht Anlaut/Bildwort — **wiederholbar**
 - Tippen fügt **keine** Buchstaben automatisch ins Textfeld ein (Schreiben bleibt Aufgabe des Kindes)
-- Bei höherer Schwierigkeit im Editor optional ausblendbar
+- Sichtbarkeit und Buchstaben-Kästchen hängen vom **Spielmodus** ab (Buchstaben lernen / Schreibtabelle üben / Freies Schreiben); im Editor zusätzlich optional steuerbar
 
 ---
 
@@ -235,14 +280,15 @@ Es gibt einen **Editor**, mit dem Eltern/Lehrpersonen Mathe- und Schreibrätsel 
 ### 8.2 Progression
 
 - Rätsel in **Sets** („Woche 1“, „längere Wörter“, „Umlaute“, …)
-- Start: kurze Wörter (3–4 Buchstaben), einfaches Plus/Abzählen, Nachzeichnen von Brücke/Leiter
-- Später: längere Wörter, nur Hören ohne Motiv, Anlauttabelle aus, Größer/Kleiner, Zurückzählen, Zahlenreihen
+- Start: kurze Wörter (3–4 Buchstaben), einfaches Plus/Abzählen, Nachzeichnen von Brücke/Leiter; Spielmodus-Default **Buchstaben lernen**
+- Später: längere Wörter, nur Hören ohne Motiv, Modus **Schreibtabelle üben** bzw. **Freies Schreiben**, Größer/Kleiner, Zurückzählen, Zahlenreihen
 - Freischaltung manuell oder nach Spielerfolg
+- Gewählter Spielmodus bleibt gerätebezogen im Browser gespeichert
 
 ### 8.3 Editor-Funktionen
 
 - Liste: Neu, Duplizieren, Löschen
-- Vorschau der Pause-UI (Textfeld, Hör-Button, Anlauttabelle)
+- Vorschau der Pause-UI (Textfeld, Hör-Button, Schreibtabelle, ggf. Buchstaben-Kästchen je nach Modus)
 - Test: Stimme, Eingabe, Effekt-Simulation
 - Speichern lokal (z. B. JSON / IndexedDB)
 - Export/Import zum Teilen
@@ -275,6 +321,7 @@ Der Editor ändert **Inhalt und Schwierigkeit**; Steuerung (Pause, Textfeld, Pen
 - Pointer/Touch/Pen-Events; Textfeld-Fokus für Windows Pen-Tastatur
 - Sprache: Web Speech API (`speechSynthesis`, `de-DE`)
 - Content als datengetriebene Rätsel (JSON), vom Editor pflegbar
+- Debug: F1 toggelt Debug-UI inkl. Modus-Dropdown am Rätsel
 - Mech-Assets: Seitenansicht-Sprites (neu oder abgeleitet aus dem Mech-Projekt; Iso-Sprites reichen für Side-View oft nicht)
 
 ---
@@ -286,11 +333,13 @@ Der Editor ändert **Inhalt und Schwierigkeit**; Steuerung (Pause, Textfeld, Pen
 3. Pause + Textfeld + Windows-Pen-Tastatur
 4. Wort-Magie: **Brücke** + **Seil** (Hör- und Motiv-Modus)
 5. Hör-Button wiederholbar
-6. Einfache Anlauttabelle (Teilmenge)
-7. Transform mindestens **Mech** / **Auto** (oder Schiff)
-8. Mathe: mindestens Plus **und** eine Vergleichs- oder Zurückzähl-Variante
-9. Nachzeichnen: mindestens eine **Brücke** oder **Leiter** per Pfad
-10. Minimaler Editor: Wort/Mathe-Untertyp + Lösung + Hinweis-Modus (+ Nachzeichneffekt) speichern/laden
+6. Einfache Schreibtabelle / Anlauttabelle (Teilmenge)
+7. Spielmodi in Settings: mindestens **Buchstaben lernen** (Default, mit Kästchen) und Umschalten speichern; weitere Modi möglichst schon skizziert
+8. **Debug-Modus** per **F1**: Dropdown am Rätsel zum Umschalten der Schreib-Modi
+9. Transform mindestens **Mech** / **Auto** (oder Schiff)
+10. Mathe: mindestens Plus **und** eine Vergleichs- oder Zurückzähl-Variante
+11. Nachzeichnen: mindestens eine **Brücke** oder **Leiter** per Pfad
+12. Minimaler Editor: Wort/Mathe-Untertyp + Lösung + Hinweis-Modus (+ Nachzeichneffekt) speichern/laden
 
 ---
 
@@ -300,9 +349,10 @@ Der Editor ändert **Inhalt und Schwierigkeit**; Steuerung (Pause, Textfeld, Pen
 - Bei Textfeld-Rätseln immer pausieren
 - Pen-Tastatur nutzen; Auswertung als Text
 - Hör-Hinweise immer wiederholbar
-- Anlauttabelle als Hilfsmittel, nicht als Autovervollständigung
+- Schreibtabelle als Hilfsmittel, nicht als Autovervollständigung
+- Schreib-Unterstützung über Settings-Modi (Default = einfachste Stufe); letzter Stand im Browser
 - Fehlerfreundlich, kurze Sessions, klare visuelle Belohnung in der Welt
-- Schwierigkeit über den Editor steigerbar, wenn das Kind Fortschritte macht
+- Schwierigkeit über Spielmodus und Editor steigerbar, wenn das Kind Fortschritte macht
 - Mechs als Helfer-Helden, Stil C, freundlich
 
 ---
@@ -310,7 +360,9 @@ Der Editor ändert **Inhalt und Schwierigkeit**; Steuerung (Pause, Textfeld, Pen
 ## 12. Offene Punkte
 
 - Exakter Tech-Stack und Projektstruktur im Repo
-- Umfang der ersten Anlauttabelle (Vollsatz vs. Teilmenge)
+- Umfang der ersten Schreibtabelle / Anlauttabelle (Vollsatz vs. Teilmenge)
+- Ab wann genau die Lösung bei **Schreibtabelle üben** erscheint (Versuchszahl, Button „Tipp“)
+- Ob **Freies Schreiben** nur die Hilfe abschaltet oder zusätzlich einen schwierigeren Wortschatz erzwingt
 - Eingabeformate für Größer/Kleiner (`<`/`>` vs. Wörter vs. Zahl wählen)
 - Speichern von Editor-Inhalten nur lokal vs. Cloud/Datei-Sync
 - Rechte/Credits für Anlaut-Didaktik (eigene Art, Leseschlau nur als strukturelles Vorbild)

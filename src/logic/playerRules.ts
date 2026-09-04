@@ -2,17 +2,22 @@ export function canJump(grounded: boolean, worldPaused: boolean): boolean {
   return grounded && !worldPaused;
 }
 
-export type FormId = "mech" | "auto";
+export type CharacterId = "bolt" | "marina" | "rush";
+/** Robot vs vehicle silhouette — physics and squash/stretch. */
+export type ShapeId = "mech" | "auto";
+/** @deprecated alias — prefer ShapeId */
+export type FormId = ShapeId;
 
-export function moveSpeed(form: FormId): number {
-  return form === "auto" ? 420 : 280;
+export function moveSpeed(shape: ShapeId): number {
+  return shape === "auto" ? 630 : 420;
 }
 
-export function jumpVelocity(form: FormId): number {
-  return form === "auto" ? -280 : -520;
+export function jumpVelocity(shape: ShapeId): number {
+  return shape === "auto" ? -420 : -780;
 }
 
-export const RESPAWN = { x: 200, y: 620 };
+/** Feet on the walk collider in the 1920×1080 world (slightly below drawn grass). */
+export const RESPAWN = { x: 300, y: 948 };
 
 export type MoveInput = { left: boolean; right: boolean; jump: boolean };
 

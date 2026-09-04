@@ -8,7 +8,16 @@ export type WorldEffect =
   | "spawn_platform"
   | "transform_mech"
   | "transform_auto"
+  | "transform_bolt"
+  | "transform_marina"
+  | "transform_rush"
   | "none";
+
+export type TransformOption = {
+  answer: string;
+  effect: WorldEffect;
+  motifId: string;
+};
 
 export type Puzzle = {
   id: string;
@@ -27,6 +36,10 @@ export type Puzzle = {
   plusB?: number;
   traceTemplate?: "bridge" | "ladder";
   anlautVisible?: boolean;
+  /** Display syllables for Silbenbogen hints (e.g. ["Brü","cke"]). */
+  syllables?: string[];
+  /** Free / multi-target transform: any listed answer is accepted. */
+  transformOptions?: TransformOption[];
   levelId: string;
 };
 

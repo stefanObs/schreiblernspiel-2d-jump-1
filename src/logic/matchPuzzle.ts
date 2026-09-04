@@ -1,10 +1,14 @@
 import { answersMatch, normalizeAnswer } from "./normalizeAnswer";
-import type { Puzzle } from "./puzzleTypes";
+import type { Puzzle, WorldEffect } from "./puzzleTypes";
 
-export type MatchResult = { ok: boolean; effect: Puzzle["effect"] | "none" };
+export type MatchResult = { ok: boolean; effect: WorldEffect | "none" };
 
 export function matchPuzzle(puzzle: Puzzle, input: string): MatchResult {
   const fail: MatchResult = { ok: false, effect: "none" };
+  if (puzzle.type === "transform" && puzzle.transformOptions?.length) {
+    const hit = puzzle.transformOptions.find((o) => answersMatch(input, o.answer));
+    return hit ? { ok: true, effect: hit.effect } : fail;
+  }
   if (puzzle.type === "word" || puzzle.type === "transform") {
     return answersMatch(input, puzzle.solution)
       ? { ok: true, effect: puzzle.effect }
