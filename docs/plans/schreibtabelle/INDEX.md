@@ -14,8 +14,8 @@ Feature-Schritte, keine Prozess-Schritte. Fast-Path: Parent setzt um. Sonst: Pla
 |----|-------|---------|----------------|--------|
 | S01 | `S01-ein-laut-tts.md` | Ein-Laut-TTS + Vollkatalog-Daten | — | erledigt |
 | S02 | `S02-thurgau-layout.md` | Regionen-Layout + Farben + klickbare Platzhalter | S01 | erledigt |
-| S03 | `S03-art-vokale-seite.md` | Stil-C-Icons Vokale/Diphthonge + Seitenleiste | S02 | offen |
-| S04 | `S04-art-mitlaut-boegen.md` | Stil-C-Icons Mitlaut-Bögen inkl. ng/ch/e | S02 | offen |
+| S03 | `S03-art-vokale-seite.md` | Stil-C-Icons Vokale/Diphthonge + Seitenleiste | S02 | erledigt |
+| S04 | `S04-art-mitlaut-boegen.md` | Stil-C-Icons Mitlaut-Bögen inkl. ng/ch/e | S02 | erledigt |
 
 Status nur: `offen` → `in Arbeit` → `erledigt` (nach Pass + Git).
 

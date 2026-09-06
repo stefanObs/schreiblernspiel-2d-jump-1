@@ -1,4 +1,13 @@
-import { phoneticLautOnly, tilesInRegion, type AnlautTile } from "./logic/anlaut";
+import {
+  LEFT_BOTTOM_ORDER,
+  LEFT_RIGHT_ORDER,
+  LEFT_VOWEL_ORDER,
+  RIGHT_ARCH_ORDER,
+  phoneticLautOnly,
+  tilesInOrder,
+  tilesInRegion,
+  type AnlautTile,
+} from "./logic/anlaut";
 import { joinLetterSlots, nextEmptySlotIndex } from "./logic/letterSlots";
 import { matchPuzzle } from "./logic/matchPuzzle";
 import { motifArtPaths } from "./logic/motifArt";
@@ -530,28 +539,34 @@ function renderAnlaut(host: HTMLElement, _speak: SpeakFn): void {
   board.setAttribute("aria-label", "Schreibtabelle");
 
   const sidebar = section("schreibtabelle-sidebar", "Sonderlaute");
-  for (const t of tilesInRegion("sidebar")) sidebar.appendChild(tileButton(t));
+  for (const t of tilesInRegion("sidebar")) sidebar.appendChild(tileButton(t, "pair"));
 
-  const center = document.createElement("div");
-  center.className = "schreibtabelle-center";
-
+  // —— Linker Bogen: 3 Phasen (Vokale oben / Mitlaute unten links / Klein rechts) ——
+  const leftArch = section("schreibtabelle-left-arch", "Linker Bogen");
   const vowels = section("schreibtabelle-vowels", "Vokale");
-  for (const t of tilesInRegion("vowels")) vowels.appendChild(tileButton(t));
+  for (const t of tilesInOrder(LEFT_VOWEL_ORDER)) vowels.appendChild(tileButton(t, "pair"));
 
-  const arches = document.createElement("div");
-  arches.className = "schreibtabelle-arches";
-  const main = section("schreibtabelle-consonants-main", "Mitlaute");
-  for (const t of tilesInRegion("consonantsMain")) main.appendChild(tileButton(t));
-  const right = section("schreibtabelle-consonants-right", "Weitere Laute");
-  for (const t of tilesInRegion("consonantsRight")) right.appendChild(tileButton(t));
-  arches.append(main, right);
+  const leftBody = document.createElement("div");
+  leftBody.className = "schreibtabelle-left-body";
+  const bottom = section("schreibtabelle-left-bottom", "Mitlaute");
+  for (const t of tilesInOrder(LEFT_BOTTOM_ORDER)) bottom.appendChild(tileButton(t, "pair"));
+  const leftRight = section("schreibtabelle-left-right", "Kleinbuchstaben");
+  for (const t of tilesInOrder(LEFT_RIGHT_ORDER)) leftRight.appendChild(tileButton(t, "lower"));
+  leftBody.append(bottom, leftRight);
+  leftArch.append(vowels, leftBody);
 
-  center.append(vowels, arches);
+  // —— Rechter Bogen: grünes e oben + Mitlaut-Spalten ——
+  const rightArch = section("schreibtabelle-right-arch", "Rechter Bogen");
+  const eTile = tilesInRegion("rightArch").find((t) => t.id === "e-silent");
+  if (eTile) rightArch.appendChild(tileButton(eTile, "lower"));
+  const rightCols = section("schreibtabelle-right-cols", "Mitlaute rechts");
+  for (const t of tilesInOrder(RIGHT_ARCH_ORDER)) rightCols.appendChild(tileButton(t, "lower"));
+  rightArch.appendChild(rightCols);
 
   const diph = section("schreibtabelle-diphthongs", "Diphthonge");
-  for (const t of tilesInRegion("diphthongs")) diph.appendChild(tileButton(t));
+  for (const t of tilesInRegion("diphthongs")) diph.appendChild(tileButton(t, "pair"));
 
-  board.append(sidebar, center, diph);
+  board.append(sidebar, leftArch, rightArch, diph);
   host.appendChild(board);
 }
 
@@ -563,25 +578,43 @@ function section(className: string, label: string): HTMLElement {
   return el;
 }
 
-function tileButton(tile: AnlautTile): HTMLButtonElement {
+type LetterMode = "pair" | "lower";
+
+function tileButton(tile: AnlautTile, mode: LetterMode): HTMLButtonElement {
   const b = document.createElement("button");
   b.type = "button";
   b.className = "anlaut-tile";
   b.dataset.anlautId = tile.id;
   if (tile.accent) b.classList.add(`anlaut-accent-${tile.accent}`);
-  b.setAttribute("aria-label", `${tile.upper} ${tile.lower}, Laut ${tile.speak}`);
+  if (tile.region === "leftVowels" || tile.region === "diphthongs") {
+    b.classList.add("anlaut-tile-vowel");
+  }
+  const labelLetters =
+    mode === "lower" ? tile.lower : `${tile.upper}${tile.lower !== tile.upper ? ` ${tile.lower}` : ""}`;
+  b.setAttribute("aria-label", `${labelLetters}, Laut ${tile.speak}`);
 
   const letters = document.createElement("span");
   letters.className = "anlaut-letters";
-  const upper = document.createElement("span");
-  upper.className = "anlaut-upper";
-  upper.textContent = tile.upper;
-  letters.appendChild(upper);
-  if (tile.lower && tile.lower !== tile.upper) {
+  if (mode === "lower") {
     const lower = document.createElement("span");
     lower.className = "anlaut-lower";
-    lower.textContent = tile.lower;
+    lower.textContent = tile.lower.startsWith("...") ? tile.lower : tile.lower;
+    // ng/ch show as …ng / …ch like the reference
+    if (tile.id === "ng" || tile.id === "ch") {
+      lower.textContent = `…${tile.lower}`;
+    }
     letters.appendChild(lower);
+  } else {
+    const upper = document.createElement("span");
+    upper.className = "anlaut-upper";
+    upper.textContent = tile.upper;
+    letters.appendChild(upper);
+    if (tile.lower && tile.lower !== tile.upper) {
+      const lower = document.createElement("span");
+      lower.className = "anlaut-lower";
+      lower.textContent = tile.lower;
+      letters.appendChild(lower);
+    }
   }
 
   if (tile.image) {
@@ -595,7 +628,7 @@ function tileButton(tile: AnlautTile): HTMLButtonElement {
   } else {
     const ph = document.createElement("span");
     ph.className = "anlaut-placeholder";
-    ph.textContent = tile.upper;
+    ph.textContent = mode === "lower" ? tile.lower : tile.upper;
     ph.setAttribute("aria-hidden", "true");
     b.append(letters, ph);
   }

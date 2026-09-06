@@ -145,6 +145,15 @@ html, body { margin: 0; height: 100%; background: #4DA3FF; font-family: sans-ser
   border: 3px solid #1A1A1A; background: #4DA3FF; color: #1A1A1A;
 }
 #ballkanone-prompt { margin: 0; font-size: 18px; font-weight: 600; }
+#ballkanone-word {
+  margin: 0;
+  font-size: 28px;
+  font-weight: 800;
+  letter-spacing: 0.06em;
+  font-family: Georgia, "Times New Roman", serif;
+  color: #FFD600;
+  text-shadow: 0 1px 0 #1a1a1a, 2px 2px 0 rgba(0,0,0,0.35);
+}
 #ballkanone-slots {
   margin: 0; font-size: 32px; font-weight: 800; letter-spacing: 0.2em;
   font-family: Georgia, "Times New Roman", serif;
@@ -281,7 +290,7 @@ html, body { margin: 0; height: 100%; background: #4DA3FF; font-family: sans-ser
   flex-wrap: wrap;
   gap: 10px;
   margin-top: 16px;
-  width: min(920px, 100%);
+  width: min(980px, 100%);
   justify-content: center;
 }
 #puzzle-anlaut.schreibtabelle {
@@ -289,8 +298,8 @@ html, body { margin: 0; height: 100%; background: #4DA3FF; font-family: sans-ser
 }
 .schreibtabelle-board {
   display: grid;
-  grid-template-columns: minmax(72px, 0.85fr) minmax(0, 3.2fr) minmax(88px, 1fr);
-  gap: 10px;
+  grid-template-columns: minmax(70px, 0.75fr) minmax(0, 2.6fr) minmax(0, 1.35fr) minmax(80px, 0.85fr);
+  gap: 8px;
   width: 100%;
   padding: 12px;
   background: #e8d5f2;
@@ -301,50 +310,73 @@ html, body { margin: 0; height: 100%; background: #4DA3FF; font-family: sans-ser
 .schreibtabelle-sidebar {
   display: flex;
   flex-direction: column;
-  gap: 6px;
-  padding: 8px 6px;
+  gap: 5px;
+  padding: 8px 5px;
   background: #d4b8e8;
   border-radius: 12px;
   border: 3px solid #1a1a1a;
 }
-.schreibtabelle-center {
+.schreibtabelle-left-arch {
   display: flex;
   flex-direction: column;
-  gap: 10px;
+  gap: 8px;
   min-width: 0;
+  padding: 8px;
+  background: #efe0f7;
+  border: 3px solid #1a1a1a;
+  border-radius: 40% 40% 14px 14px / 28% 28% 14px 14px;
 }
+/* Vokale = gleiche Farbe wie mittleres 3er-Feld (#FFE082 / #F9A825) */
 .schreibtabelle-vowels {
   display: grid;
   grid-template-columns: repeat(5, minmax(0, 1fr));
-  gap: 6px;
-  padding: 10px 8px 12px;
-  background: #f5c4a0;
-  border: 3px solid #1a1a1a;
-  border-radius: 40% 40% 14px 14px / 55% 55% 14px 14px;
+  gap: 5px;
+  padding: 8px 6px 10px;
+  background: #ffe082;
+  border: 3px solid #f9a825;
+  border-radius: 40% 40% 12px 12px / 55% 55% 12px 12px;
 }
-.schreibtabelle-arches {
+.schreibtabelle-left-body {
   display: grid;
-  grid-template-columns: 1.6fr 1fr;
-  gap: 8px;
-}
-.schreibtabelle-consonants-main,
-.schreibtabelle-consonants-right {
-  display: grid;
-  grid-template-columns: repeat(auto-fill, minmax(64px, 1fr));
+  grid-template-columns: 1.55fr 1fr;
   gap: 6px;
+  min-width: 0;
+}
+.schreibtabelle-left-bottom {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 5px;
   align-content: start;
-  padding: 10px 8px 14px;
+}
+.schreibtabelle-left-right {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 5px;
+  align-content: start;
+}
+.schreibtabelle-right-arch {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  min-width: 0;
+  padding: 8px 6px;
   background: #efe0f7;
   border: 3px solid #1a1a1a;
-  border-radius: 28% 28% 12px 12px / 40% 40% 12px 12px;
+  border-radius: 36% 36% 12px 12px / 26% 26% 12px 12px;
+}
+.schreibtabelle-right-cols {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 5px;
+  align-content: start;
 }
 .schreibtabelle-diphthongs {
   display: flex;
   flex-direction: column;
   gap: 6px;
-  padding: 8px 6px;
-  background: #f5c4a0;
-  border: 3px solid #1a1a1a;
+  padding: 8px 5px;
+  background: #ffe082;
+  border: 3px solid #f9a825;
   border-radius: 12px;
   align-self: start;
 }
@@ -352,24 +384,30 @@ html, body { margin: 0; height: 100%; background: #4DA3FF; font-family: sans-ser
   display: flex;
   flex-direction: column;
   align-items: center;
-  gap: 4px;
+  gap: 3px;
   min-width: 0;
-  padding: 6px 4px 8px;
+  padding: 5px 3px 6px;
   border: 3px solid #1a1a1a;
   background: #fff;
   box-shadow: 2px 2px 0 #1a1a1a;
   border-radius: 10px;
   cursor: pointer;
 }
+.anlaut-tile.anlaut-tile-vowel {
+  background: #ffe082;
+  border-color: #f9a825;
+}
 .anlaut-tile.anlaut-accent-green {
   background: #c8e6c9;
   border-color: #2e7d32;
+  align-self: center;
+  max-width: 72px;
 }
 .anlaut-letters {
   display: flex;
   align-items: baseline;
-  gap: 0.35em;
-  font-size: 15px;
+  gap: 0.3em;
+  font-size: 13px;
   font-weight: 800;
   line-height: 1.1;
   letter-spacing: 0.02em;
@@ -377,18 +415,18 @@ html, body { margin: 0; height: 100%; background: #4DA3FF; font-family: sans-ser
 .anlaut-upper { font-size: 1.05em; }
 .anlaut-lower { font-size: 0.92em; }
 .anlaut-img {
-  width: 40px;
-  height: 40px;
+  width: 36px;
+  height: 36px;
   object-fit: contain;
   image-rendering: auto;
 }
 .anlaut-placeholder {
-  width: 40px;
-  height: 40px;
+  width: 36px;
+  height: 36px;
   display: flex;
   align-items: center;
   justify-content: center;
-  font-size: 22px;
+  font-size: 18px;
   font-weight: 800;
   color: #1a1a1a;
   background: #fff8e1;
@@ -396,25 +434,22 @@ html, body { margin: 0; height: 100%; background: #4DA3FF; font-family: sans-ser
   border-radius: 8px;
 }
 .anlaut-word {
-  font-size: 11px;
+  font-size: 10px;
   font-weight: 700;
   text-align: center;
-  line-height: 1.15;
+  line-height: 1.1;
   max-width: 100%;
   overflow: hidden;
   text-overflow: ellipsis;
   white-space: nowrap;
 }
-@media (max-width: 720px) {
+@media (max-width: 820px) {
   .schreibtabelle-board {
     grid-template-columns: 1fr;
   }
   .schreibtabelle-diphthongs {
     flex-direction: row;
     flex-wrap: wrap;
-  }
-  .schreibtabelle-arches {
-    grid-template-columns: 1fr;
   }
 }
 #puzzle-hints {

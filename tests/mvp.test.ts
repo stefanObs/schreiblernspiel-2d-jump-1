@@ -5,7 +5,14 @@ import { answersMatch, normalizeAnswer } from "../src/logic/normalizeAnswer";
 import { joinLetterSlots, nextEmptySlotIndex } from "../src/logic/letterSlots";
 import { matchPuzzle } from "../src/logic/matchPuzzle";
 import { canJump, combineMove, jumpVelocity, moveSpeed, RESPAWN } from "../src/logic/playerRules";
-import { ANLAUT_REQUIRED_IDS, ANLAUT_TILES, phoneticLautOnly } from "../src/logic/anlaut";
+import {
+  ANLAUT_REQUIRED_IDS,
+  ANLAUT_TILES,
+  LEFT_BOTTOM_ORDER,
+  LEFT_VOWEL_ORDER,
+  phoneticLautOnly,
+  tilesInOrder,
+} from "../src/logic/anlaut";
 import { TRACE_PASS, templatePath, traceScore } from "../src/logic/traceScore";
 import { builtinPuzzles, exportPuzzlesJson, freeTransformPuzzle, parsePuzzlesJson } from "../src/logic/puzzleStore";
 import { motifArtPath, motifArtPaths } from "../src/logic/motifArt";
@@ -173,6 +180,32 @@ describe("anlaut", () => {
     expect(b.speak).toBe("buh");
     const green = ANLAUT_TILES.find((t) => t.id === "e-silent")!;
     expect(green.accent).toBe("green");
+  });
+  it("keeps left-arch bottom consonants in reference order with images", () => {
+    expect([...LEFT_BOTTOM_ORDER]).toEqual([
+      "r",
+      "l",
+      "n",
+      "m",
+      "h",
+      "j",
+      "s",
+      "sch",
+      "f",
+      "w",
+      "z",
+      "d",
+      "t",
+      "b",
+      "p",
+      "g",
+      "k",
+    ]);
+    for (const t of tilesInOrder(LEFT_BOTTOM_ORDER)) {
+      expect(t.image, t.id).toBeTruthy();
+      expect(t.region).toBe("leftBottom");
+    }
+    expect([...LEFT_VOWEL_ORDER]).toEqual(["i", "e", "a", "o", "u", "ie", "ae", "oe", "ue"]);
   });
   it("strips legacy wie-phrases to a single laut", () => {
     expect(phoneticLautOnly("aaa wie Affe")).toBe("aaa");
