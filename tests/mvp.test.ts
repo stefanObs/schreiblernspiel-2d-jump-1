@@ -148,6 +148,13 @@ describe("speech policy", () => {
     ]);
     expect(v?.lang).toBe("de-DE");
   });
+  it("detects German voices by name when lang is odd", () => {
+    const v = pickGermanVoice([
+      { lang: "en-US", name: "Microsoft Hedda - German (Germany)" },
+      { lang: "en-GB", name: "Daniel" },
+    ]);
+    expect(v?.name).toContain("Hedda");
+  });
   it("maps hear words to bundled clips", () => {
     expect(voiceClipPath("Brücke")).toBe("/voice/bruecke.wav");
     expect(voiceClipPath("A wie Affe")).toBe("/voice/a-wie-affe.wav");

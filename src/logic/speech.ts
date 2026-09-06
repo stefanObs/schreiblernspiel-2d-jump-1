@@ -6,7 +6,7 @@ export function shouldSpeakSolution(hintMode: "hear" | "motif", isTrace: boolean
 
 export type SpeakFn = (text: string) => void;
 
-export type VoiceLike = { lang: string };
+export type VoiceLike = { lang: string; name?: string };
 
 /** Medium-slow pace — natural word, not syllable-by-syllable. */
 export const LEARNER_SPEAK_RATE = 0.684;
@@ -23,12 +23,27 @@ export const SPEAK_REPEAT_PAUSE_MS = 750;
 /** Speak the word this many times. */
 export const SPEAK_REPEAT_COUNT = 2;
 
+const GERMAN_UTTERANCE_LANG = "de-DE";
+
 export function pickGermanVoice<T extends VoiceLike>(voices: T[]): T | undefined {
-  const list = voices.filter((v) => v.lang.toLowerCase().startsWith("de"));
+  const norm = (lang: string) => lang.toLowerCase().replace(/_/g, "-");
+  const de = voices.filter((v) => {
+    const lang = norm(v.lang);
+    const name = (v.name ?? "").toLowerCase();
+    return (
+      lang.startsWith("de") ||
+      name.includes("german") ||
+      name.includes("deutsch") ||
+      name.includes("hedda") ||
+      name.includes("katja") ||
+      name.includes("stefan")
+    );
+  });
   return (
-    list.find((v) => v.lang.toLowerCase().startsWith("de-de")) ??
-    list.find((v) => v.lang.toLowerCase().startsWith("de-ch")) ??
-    list[0]
+    de.find((v) => norm(v.lang).startsWith("de-de")) ??
+    de.find((v) => norm(v.lang).startsWith("de-ch")) ??
+    de.find((v) => norm(v.lang).startsWith("de-at")) ??
+    de[0]
   );
 }
 
@@ -65,6 +80,59 @@ function synth(): SpeechSynthesis | null {
 
 let clip: HTMLAudioElement | null = null;
 const speakTimers: number[] = [];
+let cachedGermanVoice: SpeechSynthesisVoice | null | undefined;
+let voicesHooked = false;
+
+function refreshGermanVoiceCache(): void {
+  const s = synth();
+  if (!s) {
+    cachedGermanVoice = null;
+    return;
+  }
+  cachedGermanVoice = pickGermanVoice(s.getVoices()) ?? null;
+}
+
+function ensureVoiceListener(): void {
+  const s = synth();
+  if (!s || voicesHooked) return;
+  voicesHooked = true;
+  s.addEventListener("voiceschanged", () => {
+    refreshGermanVoiceCache();
+  });
+  refreshGermanVoiceCache();
+}
+
+function germanVoice(): SpeechSynthesisVoice | undefined {
+  ensureVoiceListener();
+  const s = synth();
+  if (!s) return undefined;
+  if (!cachedGermanVoice) refreshGermanVoiceCache();
+  return cachedGermanVoice ?? undefined;
+}
+
+/** Wait briefly for async voice lists (Chrome), then run. */
+function whenVoicesReady(fn: () => void): void {
+  ensureVoiceListener();
+  const s = synth();
+  if (!s) {
+    fn();
+    return;
+  }
+  if (s.getVoices().length > 0 || cachedGermanVoice) {
+    fn();
+    return;
+  }
+  let ran = false;
+  const done = () => {
+    if (ran) return;
+    ran = true;
+    refreshGermanVoiceCache();
+    fn();
+  };
+  s.addEventListener("voiceschanged", done, { once: true });
+  // Fallback if voiceschanged never fires on this platform.
+  scheduleSpeak(400, done);
+}
 
 function clearSpeakSchedule(): void {
   while (speakTimers.length) {
@@ -122,6 +190,20 @@ function playClipRepeated(url: string, spoken: string): boolean {
   return true;
 }
 
+function buildGermanUtterance(spoken: string): SpeechSynthesisUtterance {
+  const u = new SpeechSynthesisUtterance(spoken);
+  u.lang = GERMAN_UTTERANCE_LANG;
+  u.rate = LEARNER_SPEAK_RATE;
+  u.volume = 1;
+  const voice = germanVoice();
+  if (voice) {
+    u.voice = voice;
+    // Keep lang aligned with the chosen voice when possible.
+    if (voice.lang) u.lang = voice.lang.toLowerCase().startsWith("de") ? voice.lang : GERMAN_UTTERANCE_LANG;
+  }
+  return u;
+}
+
 function speakWithSynth(text: string): void {
   const spoken = learnerSpeakText(text);
   const s = synth();
@@ -129,25 +211,22 @@ function speakWithSynth(text: string): void {
   clearSpeakSchedule();
   if (s.paused) s.resume();
 
-  let remaining = SPEAK_REPEAT_COUNT;
-  const speakNext = (delayMs: number) => {
-    scheduleSpeak(delayMs, () => {
-      remaining -= 1;
-      if (s.paused) s.resume();
-      const u = new SpeechSynthesisUtterance(spoken);
-      u.lang = "de-DE";
-      u.rate = LEARNER_SPEAK_RATE;
-      u.volume = 1;
-      const voice = pickGermanVoice(s.getVoices());
-      if (voice) u.voice = voice;
-      u.onend = () => {
-        if (remaining > 0) speakNext(SPEAK_REPEAT_PAUSE_MS);
-      };
-      s.speak(u);
-      if (s.paused) s.resume();
-    });
-  };
-  speakNext(SPEAK_LEAD_PAUSE_MS);
+  whenVoicesReady(() => {
+    let remaining = SPEAK_REPEAT_COUNT;
+    const speakNext = (delayMs: number) => {
+      scheduleSpeak(delayMs, () => {
+        remaining -= 1;
+        if (s.paused) s.resume();
+        const u = buildGermanUtterance(spoken);
+        u.onend = () => {
+          if (remaining > 0) speakNext(SPEAK_REPEAT_PAUSE_MS);
+        };
+        s.speak(u);
+        if (s.paused) s.resume();
+      });
+    };
+    speakNext(SPEAK_LEAD_PAUSE_MS);
+  });
 }
 
 function speakWithSynthOnce(text: string): void {
@@ -156,14 +235,11 @@ function speakWithSynthOnce(text: string): void {
   if (!spoken || !s) return;
   clearSpeakSchedule();
   if (s.paused) s.resume();
-  const u = new SpeechSynthesisUtterance(spoken);
-  u.lang = "de-DE";
-  u.rate = LEARNER_SPEAK_RATE;
-  u.volume = 1;
-  const voice = pickGermanVoice(s.getVoices());
-  if (voice) u.voice = voice;
-  s.speak(u);
-  if (s.paused) s.resume();
+  whenVoicesReady(() => {
+    if (s.paused) s.resume();
+    s.speak(buildGermanUtterance(spoken));
+    if (s.paused) s.resume();
+  });
 }
 
 /**
@@ -180,6 +256,7 @@ export function speakAnlaut(_clipKey: string, phoneticSpeak: string): void {
 export function speakGerman(text: string): void {
   const spoken = text.trim();
   if (!spoken) return;
+  unlockSpeech();
   // Prefer TTS so words stay natural (no baked-in syllable pauses in clips).
   if (synth()) {
     speakWithSynth(spoken);
@@ -193,5 +270,8 @@ export function speakGerman(text: string): void {
 export function unlockSpeech(): void {
   const s = synth();
   if (!s) return;
+  ensureVoiceListener();
   if (s.paused) s.resume();
+  // Nudge voice list load on platforms that defer it until after a user gesture.
+  void s.getVoices();
 }
