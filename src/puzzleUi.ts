@@ -3,7 +3,6 @@ import {
   LEFT_RIGHT_ORDER,
   LEFT_VOWEL_ORDER,
   RIGHT_ARCH_ORDER,
-  phoneticLautOnly,
   tilesInOrder,
   tilesInRegion,
   type AnlautTile,
@@ -14,7 +13,7 @@ import { motifArtPaths } from "./logic/motifArt";
 import { starFillLevels, starsFromWrongAttempts } from "./logic/starRating";
 import { TRACE_PASS, templatePath, traceScore } from "./logic/traceScore";
 import type { Point, Puzzle } from "./logic/puzzleTypes";
-import { speakAnlaut, speakGerman, type SpeakFn } from "./logic/speech";
+import { speakGerman, type SpeakFn } from "./logic/speech";
 import {
   hintStageFromAttempts,
   scrambleLetters,
@@ -598,7 +597,7 @@ function tileButton(tile: AnlautTile, mode: LetterMode): HTMLButtonElement {
   }
   const labelLetters =
     mode === "lower" ? tile.lower : `${tile.upper}${tile.lower !== tile.upper ? ` ${tile.lower}` : ""}`;
-  b.setAttribute("aria-label", `${labelLetters}, ${tile.word}, Laut ${tile.speak}`);
+  b.setAttribute("aria-label", `${labelLetters}, ${tile.word}`);
 
   const letters = document.createElement("span");
   letters.className = "anlaut-letters";
@@ -640,8 +639,7 @@ function tileButton(tile: AnlautTile, mode: LetterMode): HTMLButtonElement {
     b.append(letters, ph);
   }
 
-  const laut = phoneticLautOnly(tile.speak);
-  b.addEventListener("click", () => speakAnlaut("", laut));
+  b.addEventListener("click", () => speakGerman(tile.word));
   return b;
 }
 
