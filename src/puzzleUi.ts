@@ -548,19 +548,26 @@ function renderAnlaut(host: HTMLElement, _speak: SpeakFn): void {
 
   const leftBody = document.createElement("div");
   leftBody.className = "schreibtabelle-left-body";
-  const bottom = section("schreibtabelle-left-bottom", "Mitlaute");
+  const bottom = section("schreibtabelle-left-bottom schreibtabelle-arch-side", "Mitlaute");
   for (const t of tilesInOrder(LEFT_BOTTOM_ORDER)) bottom.appendChild(tileButton(t, "pair"));
-  const leftRight = section("schreibtabelle-left-right", "Kleinbuchstaben");
+  const leftRight = section("schreibtabelle-left-right schreibtabelle-arch-side", "Kleinbuchstaben");
   for (const t of tilesInOrder(LEFT_RIGHT_ORDER)) leftRight.appendChild(tileButton(t, "lower"));
   leftBody.append(bottom, leftRight);
   leftArch.append(vowels, leftBody);
 
-  // —— Rechter Bogen: grünes e oben + Mitlaut-Spalten ——
+  // —— Rechter Bogen: grünes e oben + zwei erkennbare Spalten ——
   const rightArch = section("schreibtabelle-right-arch", "Rechter Bogen");
   const eTile = tilesInRegion("rightArch").find((t) => t.id === "e-silent");
   if (eTile) rightArch.appendChild(tileButton(eTile, "lower"));
-  const rightCols = section("schreibtabelle-right-cols", "Mitlaute rechts");
-  for (const t of tilesInOrder(RIGHT_ARCH_ORDER)) rightCols.appendChild(tileButton(t, "lower"));
+  const rightCols = document.createElement("div");
+  rightCols.className = "schreibtabelle-right-cols";
+  const rightMain = RIGHT_ARCH_ORDER.slice(0, -4);
+  const rightDup = RIGHT_ARCH_ORDER.slice(-4);
+  const colA = section("schreibtabelle-right-col-a schreibtabelle-arch-side", "Mitlaute links");
+  for (const t of tilesInOrder(rightMain)) colA.appendChild(tileButton(t, "lower"));
+  const colB = section("schreibtabelle-right-col-b schreibtabelle-arch-side", "Mitlaute rechts");
+  for (const t of tilesInOrder(rightDup)) colB.appendChild(tileButton(t, "lower"));
+  rightCols.append(colA, colB);
   rightArch.appendChild(rightCols);
 
   const diph = section("schreibtabelle-diphthongs", "Diphthonge");
@@ -591,7 +598,7 @@ function tileButton(tile: AnlautTile, mode: LetterMode): HTMLButtonElement {
   }
   const labelLetters =
     mode === "lower" ? tile.lower : `${tile.upper}${tile.lower !== tile.upper ? ` ${tile.lower}` : ""}`;
-  b.setAttribute("aria-label", `${labelLetters}, Laut ${tile.speak}`);
+  b.setAttribute("aria-label", `${labelLetters}, ${tile.word}, Laut ${tile.speak}`);
 
   const letters = document.createElement("span");
   letters.className = "anlaut-letters";
@@ -632,11 +639,6 @@ function tileButton(tile: AnlautTile, mode: LetterMode): HTMLButtonElement {
     ph.setAttribute("aria-hidden", "true");
     b.append(letters, ph);
   }
-
-  const word = document.createElement("span");
-  word.className = "anlaut-word";
-  word.textContent = tile.word;
-  b.appendChild(word);
 
   const laut = phoneticLautOnly(tile.speak);
   b.addEventListener("click", () => speakAnlaut("", laut));
