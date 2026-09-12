@@ -7,15 +7,28 @@ import {
   tilesInRegion,
   type AnlautTile,
 } from "./logic/anlaut";
-import { joinLetterSlots, nextEmptySlotIndex } from "./logic/letterSlots";
+import {
+  backspaceSlotTarget,
+  isSlotArrowKey,
+  joinLetterSlots,
+  neighborSlotIndex,
+  slotLetterIsCorrect,
+} from "./logic/letterSlots";
+import { matchPuzzle } from "./logic/matchPuzzle";
+import { motifArtPaths } from "./logic/motifArt";
+import { rngFromPuzzleQuery } from "./logic/puzzleQuery";
 import {
   isLetterPosPuzzle,
   letterPosHearLabel,
   realizeLetterPosPuzzle,
 } from "./logic/letterPositionPuzzle";
-import { matchPuzzle } from "./logic/matchPuzzle";
+import { letterPosWordArt } from "./logic/letterPosWordArt";
+import {
+  isLetterPickPuzzle,
+  realizeLetterPickPuzzle,
+} from "./logic/letterPickPuzzle";
 import { realizeMathPuzzle } from "./logic/mathPuzzle";
-import { motifArtPaths } from "./logic/motifArt";
+import { isRepeatPuzzle, realizeRepeatPuzzle, repeatHearLabel } from "./logic/repeatPuzzle";
 import { starFillLevels, starsFromWrongAttempts } from "./logic/starRating";
 import { TRACE_PASS, templatePath, traceScore } from "./logic/traceScore";
 import type { Point, Puzzle } from "./logic/puzzleTypes";
@@ -58,7 +71,10 @@ export function isOverlayOpen(): boolean {
 }
 
 export function openPuzzle(puzzle: Puzzle, handlers: OverlayHandlers): void {
+  const queryRng = typeof window !== "undefined" ? rngFromPuzzleQuery(window.location.search) : undefined;
+  puzzle = realizeRepeatPuzzle(puzzle, queryRng);
   puzzle = realizeLetterPosPuzzle(puzzle);
+  puzzle = realizeLetterPickPuzzle(puzzle);
   puzzle = realizeMathPuzzle(puzzle);
   current = puzzle;
   wrongAttempts = 0;
@@ -77,6 +93,15 @@ export function openPuzzle(puzzle: Puzzle, handlers: OverlayHandlers): void {
   const letterPos = document.getElementById("puzzle-letter-pos");
   const letterPosLetter = document.getElementById("puzzle-letter-pos-letter");
   const letterPosChoices = document.getElementById("puzzle-letter-pos-choices");
+  const letterPosWordBtn = document.getElementById(
+    "puzzle-letter-pos-word",
+  ) as HTMLButtonElement | null;
+  const letterPosImg = document.getElementById(
+    "puzzle-letter-pos-img",
+  ) as HTMLImageElement | null;
+  const letterPick = document.getElementById("puzzle-letter-pick");
+  const letterPickLetter = document.getElementById("puzzle-letter-pick-letter");
+  const letterPickTiles = document.getElementById("puzzle-letter-pick-tiles");
   const okBtn = document.getElementById("puzzle-ok");
   const trace = document.getElementById("puzzle-trace") as HTMLCanvasElement | null;
   const anlaut = document.getElementById("puzzle-anlaut");
@@ -94,6 +119,11 @@ export function openPuzzle(puzzle: Puzzle, handlers: OverlayHandlers): void {
     !letterPos ||
     !letterPosLetter ||
     !letterPosChoices ||
+    !letterPosWordBtn ||
+    !letterPosImg ||
+    !letterPick ||
+    !letterPickLetter ||
+    !letterPickTiles ||
     !okBtn ||
     !trace ||
     !anlaut ||
@@ -108,6 +138,7 @@ export function openPuzzle(puzzle: Puzzle, handlers: OverlayHandlers): void {
   input.value = "";
   input.classList.remove("wrong");
   letterPosChoices.classList.remove("wrong");
+  letterPickTiles.classList.remove("wrong");
   success.classList.add("hidden");
   panel.classList.remove("hidden");
   anlaut.classList.remove("success-dim");
@@ -115,20 +146,23 @@ export function openPuzzle(puzzle: Puzzle, handlers: OverlayHandlers): void {
 
   const isTrace = puzzle.type === "trace";
   const isLetterPos = isLetterPosPuzzle(puzzle);
-  textRow.classList.toggle("hidden", isTrace || isLetterPos);
+  const isLetterPick = isLetterPickPuzzle(puzzle);
+  textRow.classList.toggle("hidden", isTrace || isLetterPos || isLetterPick);
   letterPos.classList.toggle("hidden", !isLetterPos);
+  letterPick.classList.toggle("hidden", !isLetterPick);
   okBtn.classList.toggle("hidden", isLetterPos);
   trace.classList.toggle("hidden", !isTrace);
 
   const arts = motifArtPaths(puzzle);
-  motif.classList.toggle("hidden", arts.length === 0 || isLetterPos);
+  motif.classList.toggle("hidden", arts.length === 0 || isLetterPos || isLetterPick);
   motif.innerHTML = arts
     .map((src) => `<img src="${src}" alt="" decoding="async" class="puzzle-motif-img" />`)
     .join("");
   motif.classList.toggle("motif-strip", arts.length > 1);
 
-  hear.textContent = isLetterPos ? letterPosHearLabel(puzzle) : "Wort hören";
+  hear.textContent = isLetterPos ? letterPosHearLabel(puzzle) : repeatHearLabel(puzzle);
   hear.onclick = () => speakFn(puzzle.voiceText);
+  hear.classList.toggle("hidden", isLetterPick);
 
   let solvedEffect = puzzle.effect;
 
@@ -144,6 +178,19 @@ export function openPuzzle(puzzle: Puzzle, handlers: OverlayHandlers): void {
   if (isLetterPos) {
     const upper = (puzzle.letterPosLetter ?? "").toLocaleUpperCase("de-DE");
     letterPosLetter.textContent = upper;
+    const art =
+      letterPosWordArt(puzzle.letterPosWord ?? "") ??
+      letterPosWordArt(puzzle.voiceText);
+    if (art) {
+      letterPosImg.src = art;
+      letterPosImg.alt = puzzle.voiceText || "Wortbild";
+      letterPosWordBtn.classList.remove("missing-art");
+    } else {
+      letterPosImg.removeAttribute("src");
+      letterPosImg.alt = "";
+      letterPosWordBtn.classList.add("missing-art");
+    }
+    letterPosWordBtn.onclick = () => speakFn(puzzle.voiceText);
     const choiceBtns = Array.from(
       letterPosChoices.querySelectorAll<HTMLButtonElement>("button[data-pos]"),
     );
@@ -162,6 +209,61 @@ export function openPuzzle(puzzle: Puzzle, handlers: OverlayHandlers): void {
         }
       };
     }
+  } else if (isLetterPick) {
+    const upper = (puzzle.letterPickLetter ?? "").toLocaleUpperCase("de-DE");
+    letterPickLetter.textContent = upper;
+    letterPickTiles.innerHTML = "";
+    let selectedId: string | null = null;
+    const options = puzzle.letterPickOptions ?? [];
+    for (const opt of options) {
+      const btn = document.createElement("button");
+      btn.type = "button";
+      btn.dataset.optId = opt.id;
+      btn.setAttribute("aria-label", opt.display);
+      const img = document.createElement("img");
+      img.className = "letter-pick-img";
+      img.alt = "";
+      img.decoding = "async";
+      img.src = `/${opt.artPath}`;
+      const fallback = document.createElement("span");
+      fallback.className = "letter-pick-fallback";
+      fallback.textContent = opt.display.slice(0, 1).toLocaleUpperCase("de-DE");
+      fallback.hidden = true;
+      img.onerror = () => {
+        img.hidden = true;
+        fallback.hidden = false;
+      };
+      const label = document.createElement("span");
+      label.className = "letter-pick-label";
+      label.textContent = opt.display;
+      btn.append(img, fallback, label);
+      btn.onclick = () => {
+        selectedId = opt.id;
+        for (const other of letterPickTiles.querySelectorAll("button")) {
+          other.classList.toggle("selected", other === btn);
+        }
+        letterPickTiles.classList.remove("wrong");
+        err.textContent = "";
+        speakFn(opt.voiceText || opt.display);
+      };
+      letterPickTiles.appendChild(btn);
+    }
+    okBtn.onclick = () => {
+      if (!selectedId) {
+        err.textContent = "Bitte ein Bild auswählen.";
+        return;
+      }
+      const result = matchPuzzle(puzzle, selectedId);
+      if (result.ok) {
+        solvedEffect = result.effect === "none" ? puzzle.effect : result.effect;
+        finishOk();
+      } else {
+        wrongAttempts += 1;
+        letterPickTiles.classList.add("wrong");
+        err.textContent = "Noch einmal versuchen.";
+        applyWritingModeUi();
+      }
+    };
   } else if (isTrace) {
     setupTrace(trace, puzzle, finishOk);
   } else {
@@ -169,6 +271,7 @@ export function openPuzzle(puzzle: Puzzle, handlers: OverlayHandlers): void {
     const slotsHost = document.getElementById("puzzle-letter-slots");
     input.classList.toggle("hidden", useLetterSlots);
     slotsHost?.classList.toggle("hidden", !useLetterSlots);
+    slotsHost?.classList.toggle("repeat-size", useLetterSlots && isRepeatPuzzle(puzzle));
     slotsHost?.classList.remove("wrong");
 
     const slotInputs = useLetterSlots
@@ -176,19 +279,6 @@ export function openPuzzle(puzzle: Puzzle, handlers: OverlayHandlers): void {
           document.querySelectorAll<HTMLInputElement>("#puzzle-letter-slots .letter-slot-input"),
         ) as HTMLInputElement[])
       : [];
-
-    if (useLetterSlots) {
-      for (const el of slotInputs) {
-        el.value = "";
-        el.classList.remove("wrong");
-      }
-      wireLetterSlots(slotInputs, () => {
-        /* focus only */
-      });
-      slotInputs[0]?.focus();
-    } else {
-      input.focus();
-    }
 
     const readAnswer = () =>
       useLetterSlots
@@ -212,28 +302,110 @@ export function openPuzzle(puzzle: Puzzle, handlers: OverlayHandlers): void {
         applyWritingModeUi();
       }
     };
+
+    if (useLetterSlots) {
+      for (const el of slotInputs) {
+        el.value = "";
+        el.classList.remove("wrong");
+      }
+      wireLetterSlots(slotInputs, expectedWordsForPuzzle(puzzle), submit, {
+        caseSensitive: isRepeatPuzzle(puzzle),
+      });
+      focusLetterSlot(slotInputs[0]);
+    } else {
+      input.focus();
+    }
+
     okBtn.onclick = submit;
-    const onEnter = (e: KeyboardEvent) => {
+    input.onkeydown = (e) => {
       if (e.key === "Enter") submit();
     };
-    input.onkeydown = onEnter;
-    for (const el of slotInputs) el.onkeydown = onEnter;
   }
 
   applyWritingModeUi();
 }
 
-function wireLetterSlots(slots: HTMLInputElement[], _onChange: () => void): void {
+function focusLetterSlot(el: HTMLInputElement | undefined): void {
+  if (!el) return;
+  el.focus();
+  el.select();
+}
+
+function isPrintableLetterKey(e: KeyboardEvent): boolean {
+  return e.key.length === 1 && !e.ctrlKey && !e.metaKey && !e.altKey;
+}
+
+function expectedWordsForPuzzle(puzzle: Puzzle): string[] {
+  if (puzzle.transformOptions?.length) {
+    return puzzle.transformOptions.map((o) => o.answer);
+  }
+  return puzzle.solution ? [puzzle.solution] : [];
+}
+
+function applySlotLetter(el: HTMLInputElement, ch: string): void {
+  el.value = ch.slice(-1);
+  el.select();
+}
+
+function advanceIfSlotCorrect(
+  slots: HTMLInputElement[],
+  index: number,
+  expectedWords: readonly string[],
+  opts?: { caseSensitive?: boolean },
+): void {
+  const values = slots.map((s) => s.value);
+  if (!slotLetterIsCorrect(expectedWords, values, index, opts)) {
+    slots[index]?.select();
+    return;
+  }
+  if (index + 1 < slots.length) focusLetterSlot(slots[index + 1]);
+}
+
+function wireLetterSlots(
+  slots: HTMLInputElement[],
+  expectedWords: readonly string[],
+  onSubmit: () => void,
+  opts?: { caseSensitive?: boolean },
+): void {
   slots.forEach((el, index) => {
+    el.onfocus = () => {
+      requestAnimationFrame(() => el.select());
+    };
+    el.onmouseup = (e) => {
+      e.preventDefault();
+      el.select();
+    };
+    el.onkeydown = (e) => {
+      if (e.key === "Enter") {
+        onSubmit();
+        return;
+      }
+      if (isSlotArrowKey(e.key)) {
+        e.preventDefault();
+        const next = neighborSlotIndex(index, e.key);
+        if (next !== index) focusLetterSlot(slots[next]);
+        return;
+      }
+      if (e.key === "Backspace") {
+        e.preventDefault();
+        const filled = Boolean(el.value.trim());
+        const target = backspaceSlotTarget(index, filled);
+        slots[target.clear]!.value = "";
+        focusLetterSlot(slots[target.focus]);
+        return;
+      }
+      if (isPrintableLetterKey(e) && el.value && el.selectionStart === el.selectionEnd) {
+        // maxlength=1 would ignore the key; replace the current letter instead.
+        e.preventDefault();
+        applySlotLetter(el, e.key);
+        advanceIfSlotCorrect(slots, index, expectedWords, opts);
+      }
+    };
     el.oninput = () => {
-      const raw = el.value;
-      // Keep last typed character (Pen may insert more briefly).
-      const ch = raw.slice(-1);
-      el.value = ch;
+      const ch = el.value.slice(-1);
+      applySlotLetter(el, ch);
       if (!ch) return;
-      const values = slots.map((s) => s.value);
-      const next = nextEmptySlotIndex(values, index);
-      if (next >= 0) slots[next]?.focus();
+      advanceIfSlotCorrect(slots, index, expectedWords, opts);
     };
   });
 }
@@ -280,26 +452,32 @@ function applyWritingModeUi(): void {
 
   const isTrace = puzzle.type === "trace";
   const isLetterPos = isLetterPosPuzzle(puzzle);
-  const learnSpeak = modeOn && mode === "learn" && !isTrace && !isLetterPos;
+  const isLetterPick = isLetterPickPuzzle(puzzle);
+  const learnSpeak = modeOn && mode === "learn" && !isTrace && !isLetterPos && !isLetterPick;
 
-  if (learnSpeak) {
+  const hearLabel = isLetterPos ? letterPosHearLabel(puzzle) : repeatHearLabel(puzzle);
+  if (isLetterPick) {
+    prompt.textContent = puzzle.prompt;
+  } else if (learnSpeak && !isRepeatPuzzle(puzzle)) {
     prompt.textContent = `${puzzle.prompt} Schreib die Buchstaben ab.`;
   } else if (puzzle.hintMode === "hear" && !isTrace) {
-    const hearLabel = isLetterPos ? letterPosHearLabel(puzzle) : "Wort hören";
     prompt.textContent = `${puzzle.prompt} Tippe auf „${hearLabel}“.`;
   } else {
     prompt.textContent = puzzle.prompt;
   }
 
   // Learn mode always offers hearing; otherwise follow station hintMode.
-  const showHear = !isTrace && (learnSpeak || puzzle.hintMode === "hear" || isLetterPos);
+  const showHear =
+    !isTrace &&
+    !isLetterPick &&
+    (learnSpeak || puzzle.hintMode === "hear" || isLetterPos);
   hear.classList.toggle("hidden", !showHear);
   if ((learnSpeak || isLetterPos) && !autoSpokeThisOpen) {
     autoSpokeThisOpen = true;
     speakFn(puzzle.voiceText);
   }
 
-  const showAnlaut = isLetterPos
+  const showAnlaut = isLetterPos || isLetterPick
     ? false
     : modeOn
       ? ui.showAnlaut
@@ -308,7 +486,7 @@ function applyWritingModeUi(): void {
   if (showAnlaut) renderAnlaut(anlaut, speakFn);
   else anlaut.innerHTML = "";
 
-  if (isLetterPos || isTrace) {
+  if (isLetterPos || isLetterPick || isTrace) {
     hints.classList.add("hidden");
     hints.innerHTML = "";
   } else if (ui.showCopyBoxes && modeOn && !isTrace) {
@@ -459,9 +637,13 @@ function renderCopyBoxes(host: HTMLElement, puzzle: Puzzle, asTip: boolean): voi
 
   const arcRow = document.createElement("div");
   arcRow.className = "syllable-arcs";
-  syllables.forEach((syl) => {
+  const repeatSizes = isRepeatPuzzle(puzzle);
+  syllables.forEach((syl, index) => {
     const group = document.createElement("div");
     group.className = "syllable-group";
+    if (repeatSizes) {
+      group.classList.add(index === 0 ? "repeat-large" : "repeat-small");
+    }
     const slots = document.createElement("div");
     slots.className = "letter-slots";
     for (const ch of syl) {

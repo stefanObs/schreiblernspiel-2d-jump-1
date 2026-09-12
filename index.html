@@ -53,6 +53,9 @@
         <p id="ballkanone-feedback" aria-live="polite"></p>
       </div>
       <canvas id="ballkanone-canvas"></canvas>
+      <div id="ballkanone-footer">
+        <p id="ballkanone-word" aria-live="polite"></p>
+      </div>
       <div id="ballkanone-success" class="hidden" role="dialog" aria-label="Erfolg">
         <p class="success-title">Super!</p>
         <div id="ballkanone-stars" class="success-stars"></div>
@@ -65,12 +68,19 @@
         <div id="puzzle-motif"></div>
         <p id="puzzle-prompt"></p>
         <div id="puzzle-letter-pos" class="hidden" aria-live="polite">
+          <button type="button" id="puzzle-letter-pos-word" class="letter-pos-word" title="Wort nochmals hören" aria-label="Wort nochmals hören">
+            <img id="puzzle-letter-pos-img" class="letter-pos-word-img" alt="" decoding="async" />
+          </button>
           <p id="puzzle-letter-pos-letter" class="letter-pos-letter" aria-label="Gesuchter Buchstabe"></p>
           <div id="puzzle-letter-pos-choices" class="letter-pos-choices" role="group" aria-label="Position">
             <button type="button" data-pos="anfang">Anfang</button>
             <button type="button" data-pos="mitte">Mitte</button>
             <button type="button" data-pos="ende">Ende</button>
           </div>
+        </div>
+        <div id="puzzle-letter-pick" class="hidden" aria-live="polite">
+          <p id="puzzle-letter-pick-letter" class="letter-pos-letter" aria-label="Gesuchter Buchstabe"></p>
+          <div id="puzzle-letter-pick-tiles" class="letter-pick-tiles" role="group" aria-label="Wortbilder"></div>
         </div>
         <div id="puzzle-text-row">
           <input id="puzzle-input" autocomplete="off" autocapitalize="off" />

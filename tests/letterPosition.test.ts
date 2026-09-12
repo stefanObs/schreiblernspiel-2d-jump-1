@@ -10,16 +10,19 @@ import {
   resetLetterPosPick,
   rngForLetterPosIndex,
 } from "../src/logic/letterPositionPuzzle";
+import { letterPosWordArt } from "../src/logic/letterPosWordArt";
 import { matchPuzzle } from "../src/logic/matchPuzzle";
 import { builtinPuzzles } from "../src/logic/puzzleStore";
 
 describe("letter position puzzle pool", () => {
-  it("has exactly 100 exclusive examples, ~1/3 per zone", () => {
+  it("has exactly 100 exclusive examples with word art, ~1/3 per zone", () => {
     expect(LETTER_POS_ITEMS).toHaveLength(100);
     const counts = { anfang: 0, mitte: 0, ende: 0 };
     const keys = new Set<string>();
     for (const it of LETTER_POS_ITEMS) {
       expect(exclusiveLetterPosition(it.letter, it.word)).toBe(it.position);
+      expect(letterPosWordArt(it.word)).toBeTruthy();
+      expect(letterPosWordArt(it.display)).toBeTruthy();
       expect(it.letter).toMatch(/^[a-zäöü]$/u);
       expect([...it.word].length).toBeGreaterThanOrEqual(2);
       counts[it.position] += 1;
@@ -53,6 +56,7 @@ describe("letter position realize + match", () => {
     expect(realized.voiceText).toBe(item.display);
     expect(realized.solution).toBe(item.position);
     expect(realized.prompt).toContain(item.letter.toLocaleUpperCase("de-DE"));
+    expect(letterPosWordArt(realized.letterPosWord ?? "")).toBeTruthy();
     expect(matchPuzzle(realized, item.position).ok).toBe(true);
     expect(matchPuzzle(realized, "anfang").ok).toBe(item.position === "anfang");
     expect(matchPuzzle(realized, "mitte").ok).toBe(item.position === "mitte");
