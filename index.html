@@ -62,6 +62,26 @@
         <button type="button" id="ballkanone-continue">Weiter</button>
       </div>
     </div>
+    <div id="buchstabenstrasse-overlay" class="hidden">
+      <div id="buchstabenstrasse-chrome">
+        <button type="button" id="buchstabenstrasse-hear">Wort hören</button>
+        <p id="buchstabenstrasse-prompt"></p>
+        <p id="buchstabenstrasse-slots" aria-live="polite"></p>
+        <p id="buchstabenstrasse-misses" aria-live="polite">Fehlversuche: 0</p>
+        <p id="buchstabenstrasse-feedback" aria-live="polite"></p>
+      </div>
+      <canvas id="buchstabenstrasse-canvas"></canvas>
+      <div id="buchstabenstrasse-footer">
+        <button type="button" id="buchstabenstrasse-left" aria-label="Spur links">◀</button>
+        <p id="buchstabenstrasse-word" aria-live="polite"></p>
+        <button type="button" id="buchstabenstrasse-right" aria-label="Spur rechts">▶</button>
+      </div>
+      <div id="buchstabenstrasse-success" class="hidden" role="dialog" aria-label="Erfolg">
+        <p class="success-title">Super!</p>
+        <div id="buchstabenstrasse-stars" class="success-stars"></div>
+        <button type="button" id="buchstabenstrasse-continue">Weiter</button>
+      </div>
+    </div>
     <div id="puzzle-overlay" class="hidden">
       <div id="puzzle-panel">
         <button type="button" id="puzzle-hear">Wort hören</button>

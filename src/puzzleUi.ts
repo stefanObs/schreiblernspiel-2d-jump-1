@@ -67,7 +67,10 @@ let autoSpokeThisOpen = false;
 export function isOverlayOpen(): boolean {
   const puzzleOpen = !document.getElementById("puzzle-overlay")?.classList.contains("hidden");
   const ballOpen = !document.getElementById("ballkanone-overlay")?.classList.contains("hidden");
-  return Boolean(puzzleOpen || ballOpen);
+  const streetOpen = !document
+    .getElementById("buchstabenstrasse-overlay")
+    ?.classList.contains("hidden");
+  return Boolean(puzzleOpen || ballOpen || streetOpen);
 }
 
 export function openPuzzle(puzzle: Puzzle, handlers: OverlayHandlers): void {
@@ -227,16 +230,13 @@ export function openPuzzle(puzzle: Puzzle, handlers: OverlayHandlers): void {
       img.src = `/${opt.artPath}`;
       const fallback = document.createElement("span");
       fallback.className = "letter-pick-fallback";
-      fallback.textContent = opt.display.slice(0, 1).toLocaleUpperCase("de-DE");
+      fallback.textContent = "?";
       fallback.hidden = true;
       img.onerror = () => {
         img.hidden = true;
         fallback.hidden = false;
       };
-      const label = document.createElement("span");
-      label.className = "letter-pick-label";
-      label.textContent = opt.display;
-      btn.append(img, fallback, label);
+      btn.append(img, fallback);
       btn.onclick = () => {
         selectedId = opt.id;
         for (const other of letterPickTiles.querySelectorAll("button")) {

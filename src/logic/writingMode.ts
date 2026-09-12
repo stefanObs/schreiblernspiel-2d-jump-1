@@ -16,6 +16,7 @@ export const DEFAULT_WRITING_MODE: WritingMode = "learn";
 export const PRACTICE_REVEAL_AFTER = 4;
 
 export const WRITING_MODE_STORAGE_KEY = "schreiblernspiel.writingMode";
+export const DEBUG_MODE_STORAGE_KEY = "schreiblernspiel.debugMode";
 
 export type WritingModeUi = {
   showAnlaut: boolean;
@@ -106,6 +107,7 @@ export function effectiveWritingUi(
 
 /** Modes affect word/transform text puzzles; math/trace keep prior anlaut rules. */
 export function modeAppliesToPuzzleType(type: string): boolean {
+  if (type === "letterPick" || type === "letterPos") return false;
   return type === "word" || type === "transform";
 }
 
@@ -117,22 +119,58 @@ function defaultStorage(): Storage | null {
   }
 }
 
-/** Session debug state (F1). Not persisted. */
+/** Debug flag (F1), persisted in the browser. */
+let debugLoaded = false;
 let debugEnabled = false;
 /** Session override while debugging; does not write Settings. */
 let sessionOverride: WritingMode | null = null;
 
-export function isDebugMode(): boolean {
+export function loadDebugMode(storage: Storage | null = defaultStorage()): boolean {
+  if (!storage) return false;
+  try {
+    return storage.getItem(DEBUG_MODE_STORAGE_KEY) === "1";
+  } catch {
+    return false;
+  }
+}
+
+export function saveDebugMode(
+  on: boolean,
+  storage: Storage | null = defaultStorage(),
+): void {
+  if (!storage) return;
+  try {
+    if (on) storage.setItem(DEBUG_MODE_STORAGE_KEY, "1");
+    else storage.removeItem(DEBUG_MODE_STORAGE_KEY);
+  } catch {
+    /* private mode / quota */
+  }
+}
+
+function ensureDebugLoaded(storage: Storage | null = defaultStorage()): void {
+  if (debugLoaded) return;
+  debugLoaded = true;
+  debugEnabled = loadDebugMode(storage);
+}
+
+export function isDebugMode(storage: Storage | null = defaultStorage()): boolean {
+  ensureDebugLoaded(storage);
   return debugEnabled;
 }
 
-export function setDebugMode(on: boolean): void {
+export function setDebugMode(
+  on: boolean,
+  storage: Storage | null = defaultStorage(),
+): void {
+  debugLoaded = true;
   debugEnabled = on;
   if (!on) sessionOverride = null;
+  saveDebugMode(on, storage);
 }
 
-export function toggleDebugMode(): boolean {
-  setDebugMode(!debugEnabled);
+export function toggleDebugMode(storage: Storage | null = defaultStorage()): boolean {
+  ensureDebugLoaded(storage);
+  setDebugMode(!debugEnabled, storage);
   return debugEnabled;
 }
 
@@ -148,6 +186,13 @@ export function setSessionWritingModeOverride(mode: WritingMode | null): void {
 export function getEffectiveWritingMode(
   storage: Storage | null = defaultStorage(),
 ): WritingMode {
-  if (debugEnabled && sessionOverride) return sessionOverride;
+  if (isDebugMode(storage) && sessionOverride) return sessionOverride;
   return loadWritingMode(storage);
+}
+
+/** Test helper: forget in-memory debug cache so the next read hits storage. */
+export function resetDebugModeCacheForTests(): void {
+  debugLoaded = false;
+  debugEnabled = false;
+  sessionOverride = null;
 }

@@ -39,7 +39,9 @@ function motifFromEffect(effect: WorldEffect): string | undefined {
 
 /** Path to the Style C sprite that illustrates this puzzle, or null if none. */
 export function motifArtPath(puzzle: Puzzle): string | null {
-  if (puzzle.type === "math" || puzzle.type === "letterPos") return null;
+  if (puzzle.type === "math" || puzzle.type === "letterPos" || puzzle.type === "letterPick") {
+    return null;
+  }
   const id = puzzle.motifId ?? motifFromEffect(puzzle.effect);
   if (!id) return null;
   return MOTIF_ART[id] ?? null;

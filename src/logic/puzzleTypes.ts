@@ -1,6 +1,23 @@
 export type HintMode = "hear" | "motif";
-export type PuzzleType = "word" | "math" | "transform" | "trace" | "letterPos";
+export type PuzzleType =
+  | "word"
+  | "math"
+  | "transform"
+  | "trace"
+  | "ballkanone"
+  | "buchstabenstrasse"
+  | "letterPos"
+  | "letterPick";
+export type LetterPickOption = {
+  id: string;
+  display: string;
+  artPath: string;
+  voiceText: string;
+};
 export type MathSubtype = "plus" | "minus" | "compare" | "countdown";
+/** Repeat the same character 3× large + 3× small (letter and/or digit). */
+export type RepeatKind = "digit" | "letter-or-digit";
+export type BallkanoneVariant = "static" | "track" | "peek";
 export type WorldEffect =
   | "spawn_bridge"
   | "spawn_rope"
@@ -40,10 +57,22 @@ export type Puzzle = {
   syllables?: string[];
   /** Free / multi-target transform: any listed answer is accepted. */
   transformOptions?: TransformOption[];
+  /** Ballkanone minigame variant (default static). */
+  ballkanoneVariant?: BallkanoneVariant;
+  /** Extra wrong letters for ballkanone targets. */
+  ballkanoneDistractors?: string[];
+  /** Extra wrong letters for buchstabenstrasse spawn pool. */
+  buchstabenstrasseDistractors?: string[];
+  /** Random 3× large + 3× small of one letter or digit. */
+  repeatKind?: RepeatKind;
   /** Shown letter for letterPos puzzles (lowercase). */
   letterPosLetter?: string;
   /** Spoken word (lowercase) for letterPos puzzles. */
   letterPosWord?: string;
+  /** Shown letter for letterPick puzzles (lowercase a–z). */
+  letterPickLetter?: string;
+  /** Five image options for letterPick (after realize). */
+  letterPickOptions?: LetterPickOption[];
   levelId: string;
 };
 

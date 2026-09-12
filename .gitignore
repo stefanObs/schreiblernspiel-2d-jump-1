@@ -4,3 +4,9 @@ dist/
 .vite/
 *.local
 .DS_Store
+assets/tripo-out/
+assets/letterpick-gen/
+.tripo/
+test-results/
+playwright-report/
+playwright/.cache/

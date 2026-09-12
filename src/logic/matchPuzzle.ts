@@ -1,5 +1,6 @@
 import { compareSign } from "./mathPuzzle";
 import { answersMatch, normalizeAnswer } from "./normalizeAnswer";
+import { isRepeatPuzzle } from "./repeatPuzzle";
 import type { Puzzle, WorldEffect } from "./puzzleTypes";
 
 export type MatchResult = { ok: boolean; effect: WorldEffect | "none" };
@@ -11,6 +12,9 @@ export function matchPuzzle(puzzle: Puzzle, input: string): MatchResult {
     return hit ? { ok: true, effect: hit.effect } : fail;
   }
   if (puzzle.type === "word" || puzzle.type === "transform") {
+    if (isRepeatPuzzle(puzzle)) {
+      return input === puzzle.solution ? { ok: true, effect: puzzle.effect } : fail;
+    }
     return answersMatch(input, puzzle.solution)
       ? { ok: true, effect: puzzle.effect }
       : fail;
@@ -23,6 +27,10 @@ export function matchPuzzle(puzzle: Puzzle, input: string): MatchResult {
       ? { ok: true, effect: puzzle.effect }
       : fail;
   }
+  if (puzzle.type === "letterPick") {
+    // Opaque option ids (key|slug); do not run ae/oe/ue → umlaut folding.
+    return input === puzzle.solution ? { ok: true, effect: puzzle.effect } : fail;
+  }
   return fail;
 }
 
@@ -32,6 +40,11 @@ function matchMath(puzzle: Puzzle, input: string): boolean {
     const a = puzzle.plusA ?? 0;
     const b = puzzle.plusB ?? 0;
     return n === String(a + b);
+  }
+  if (puzzle.mathSubtype === "minus") {
+    const a = puzzle.plusA ?? 0;
+    const b = puzzle.plusB ?? 0;
+    return n === String(a - b);
   }
   if (puzzle.mathSubtype === "compare") {
     const left = puzzle.compareLeft ?? 0;

@@ -2,6 +2,13 @@ import Phaser from "phaser";
 import { freeTransformPuzzle, mergedPuzzles } from "../logic/puzzleStore";
 import type { Puzzle, WorldEffect } from "../logic/puzzleTypes";
 import {
+  CATEGORIES_CHANGED_EVENT,
+  enabledStationSlots,
+  pickRandomPuzzle,
+  puzzleForSlot,
+  type StationSlotDef,
+} from "../logic/puzzleCategories";
+import {
   RESPAWN,
   canJump,
   combineMove,
@@ -25,7 +32,13 @@ import { DEBUG_OPEN_PUZZLE_EVENT, type DebugOpenPuzzleDetail } from "../logic/de
 import { parsePuzzleQuery } from "../logic/puzzleQuery";
 import { isOverlayOpen, openPuzzle } from "../puzzleUi";
 import { openBallkanone } from "../minigames/ballkanone";
+import { openBuchstabenstrasse } from "../minigames/buchstabenstrasse";
 import { unlockSpeech } from "../logic/speech";
+
+type Station = StationSlotDef & {
+  x: number;
+  y: number;
+};
 
 const S = 1.5;
 const u = (n: number) => Math.round(n * S);
@@ -47,10 +60,14 @@ export class BachbrueckeScene extends Phaser.Scene {
   private worldPaused = false;
   private grounded = false;
   private solved = new Set<string>();
-  private stations: { x: number; y: number; puzzle: Puzzle }[] = [];
+  private stations: Station[] = [];
+  private activeSlotId: string | null = null;
   private hiddenParts: Phaser.GameObjects.Rectangle[] = [];
   private propViews: Phaser.GameObjects.Image[] = [];
   private stationViews: Phaser.GameObjects.Image[] = [];
+  private onCategoriesChanged = (): void => {
+    this.rebuildStations();
+  };
   private baseScale = { x: 1, y: 1 };
   private wasGrounded = true;
   private transforming = false;
@@ -180,6 +197,10 @@ export class BachbrueckeScene extends Phaser.Scene {
     this.wireHud();
     this.wireKeyboard();
     this.wireDebugOpeners();
+    window.addEventListener(CATEGORIES_CHANGED_EVENT, this.onCategoriesChanged);
+    this.events.once(Phaser.Scenes.Events.SHUTDOWN, () => {
+      window.removeEventListener(CATEGORIES_CHANGED_EVENT, this.onCategoriesChanged);
+    });
     this.openQueryPuzzle();
   }
 
@@ -188,8 +209,12 @@ export class BachbrueckeScene extends Phaser.Scene {
       if (!isDebugMode()) return;
       const id = e.detail?.puzzleId?.trim();
       if (!id) return;
+      if (id === "free-transform") {
+        this.openFreeTransform();
+        return;
+      }
       const puzzle = mergedPuzzles().find((p) => p.id === id);
-      if (puzzle) this.tryOpenStation(puzzle);
+      if (puzzle) this.tryOpenPuzzleDirect(puzzle);
     }) as EventListener);
   }
 
@@ -198,14 +223,25 @@ export class BachbrueckeScene extends Phaser.Scene {
     if (!puzzleId) return;
     this.time.delayedCall(80, () => {
       const puzzle = mergedPuzzles().find((p) => p.id === puzzleId);
-      if (puzzle) this.tryOpenStation(puzzle);
+      if (puzzle) this.tryOpenPuzzleDirect(puzzle);
     });
   }
 
-  private tryOpenStation(puzzle: Puzzle): void {
+  private tryOpenPuzzleDirect(puzzle: Puzzle): void {
     if (this.worldPaused || isOverlayOpen() || this.transforming) return;
     unlockSpeech();
-    this.openStation(puzzle);
+    this.activeSlotId = null;
+    this.openPuzzleNow(puzzle);
+  }
+
+  private tryOpenSlot(slot: Station): void {
+    if (this.worldPaused || isOverlayOpen() || this.transforming) return;
+    if (this.solved.has(slot.id)) return;
+    const template = pickRandomPuzzle(mergedPuzzles(), slot.category);
+    if (!template) return;
+    unlockSpeech();
+    this.activeSlotId = slot.id;
+    this.openPuzzleNow(puzzleForSlot(slot, template));
   }
 
   private createAnims(): void {
@@ -589,34 +625,34 @@ export class BachbrueckeScene extends Phaser.Scene {
   }
 
   private placeStations(): void {
-    const xs: Record<string, { x: number; y: number }> = {
-      "bach-bruecke-hear": { x: u(620), y: GROUND - u(50) },
-      "bach-seil-motif": { x: u(1280), y: GROUND - u(50) },
-      "bach-ballkanone-ball": { x: u(1480), y: GROUND - u(50) },
-      "bach-plus": { x: u(1680), y: u(320) },
-      "bach-repeat-digit": { x: u(1900), y: GROUND - u(50) },
-      "bach-letter-pos": { x: u(2020), y: GROUND - u(50) },
-      "bach-compare": { x: u(2140), y: GROUND - u(50) },
-      "bach-ballkanone-kanone": { x: u(2260), y: GROUND - u(50) },
-      "bach-bolt-name": { x: u(2360), y: GROUND - u(50) },
-      "bach-marina-name": { x: u(2500), y: GROUND - u(50) },
-      "bach-rush-name": { x: u(2640), y: GROUND - u(50) },
-      "bach-transform-marina": { x: u(2780), y: GROUND - u(50) },
-      "bach-transform-rush": { x: u(2920), y: GROUND - u(50) },
-      "bach-trace-bridge": { x: u(3060), y: GROUND - u(50) },
-    };
-    for (const puzzle of mergedPuzzles()) {
-      const pos = xs[puzzle.id] ?? { x: u(600), y: GROUND - u(50) };
-      this.stations.push({ ...pos, puzzle });
-      const feetY = pos.y + u(50); // station trigger is above feet; signs stand on the surface
+    this.stations = [];
+    this.stationViews = [];
+    for (const slot of enabledStationSlots()) {
+      const x = u(slot.x);
+      const y = slot.elevated ? u(slot.y) : GROUND - u(50);
+      const station: Station = { ...slot, x, y };
+      this.stations.push(station);
+      const feetY = y + u(50); // trigger sits above feet; wooden signs stand on the surface
       const sign = this.add
-        .image(pos.x, feetY, "station-sign")
+        .image(x, feetY, "station-sign")
         .setOrigin(0.5, 1)
         .setDisplaySize(u(78), u(110))
         .setDepth(2);
-      this.bob(sign, u(4), 640 + this.stations.length * 40);
+      if (this.solved.has(slot.id)) sign.setAlpha(0.35);
+      else this.bob(sign, u(3), 700 + this.stations.length * 45);
       this.stationViews.push(sign);
     }
+  }
+
+  /** Rebuild boards when Settings toggles categories (keeps solved state). */
+  private rebuildStations(): void {
+    for (const view of this.stationViews) {
+      this.tweens.killTweensOf(view);
+      view.destroy();
+    }
+    this.stationViews = [];
+    this.stations = [];
+    this.placeStations();
   }
 
   private wireHud(): void {
@@ -719,9 +755,9 @@ export class BachbrueckeScene extends Phaser.Scene {
     if (this.player.x > u(500)) this.checkpoint = { x: u(520), y: RESPAWN.y };
 
     for (const s of this.stations) {
-      if (this.solved.has(s.puzzle.id) || this.worldPaused) continue;
+      if (this.solved.has(s.id) || this.worldPaused) continue;
       if (Math.abs(this.player.x - s.x) < u(50) && Math.abs(this.player.y - s.y) < u(80)) {
-        this.openStation(s.puzzle);
+        this.tryOpenSlot(s);
         break;
       }
     }
@@ -838,13 +874,20 @@ export class BachbrueckeScene extends Phaser.Scene {
     }
   }
 
-  private openStation(puzzle: Puzzle): void {
+  private openPuzzleNow(puzzle: Puzzle): void {
     this.worldPaused = true;
     this.physics.world.pause();
     this.player.setVelocity(0, 0);
     if (puzzle.type === "ballkanone") {
       openBallkanone(puzzle, {
         onSolved: (p) => this.applyEffect(p),
+      });
+      return;
+    }
+    if (puzzle.type === "buchstabenstrasse") {
+      openBuchstabenstrasse(puzzle, {
+        onSolved: (p) => this.applyEffect(p),
+        character: this.character,
       });
       return;
     }
@@ -893,7 +936,9 @@ export class BachbrueckeScene extends Phaser.Scene {
   }
 
   private applyEffect(puzzle: Puzzle): void {
-    this.solved.add(puzzle.id);
+    const slotId = this.activeSlotId;
+    if (slotId) this.solved.add(slotId);
+    else this.solved.add(puzzle.id);
     const isTransform = puzzle.effect.startsWith("transform_");
     this.playSolveBurst(!isTransform);
     switch (puzzle.effect) {
@@ -919,12 +964,15 @@ export class BachbrueckeScene extends Phaser.Scene {
       default:
         break;
     }
-    const idx = this.stations.findIndex((s) => s.puzzle.id === puzzle.id);
-    const sign = this.stationViews[idx];
+    const idx = slotId
+      ? this.stations.findIndex((s) => s.id === slotId)
+      : -1;
+    const sign = idx >= 0 ? this.stationViews[idx] : undefined;
     if (sign) {
       this.tweens.killTweensOf(sign);
       this.tweens.add({ targets: sign, alpha: 0.35, duration: 220 });
     }
+    this.activeSlotId = null;
     this.worldPaused = false;
     this.physics.world.resume();
   }
