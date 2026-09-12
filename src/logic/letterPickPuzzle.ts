@@ -845,14 +845,20 @@ export function letterPickHitId(entry: LetterPickEntry): string {
   return `${entry.key}|${entry.slug}`;
 }
 
-function pickHit(rng: () => number, avoidId: string): LetterPickEntry {
-  const pool = avoidId
-    ? LETTER_PICK_ITEMS.filter((it) => letterPickHitId(it) !== avoidId)
-    : LETTER_PICK_ITEMS;
+/** How many letter-pick rounds per station open. */
+export const LETTER_PICK_ROUNDS = 3;
+
+export type LetterPickRound = {
+  letter: string;
+  solution: string;
+  prompt: string;
+  options: LetterPickOption[];
+};
+
+function pickHit(rng: () => number, avoidIds: ReadonlySet<string>): LetterPickEntry {
+  const pool = LETTER_PICK_ITEMS.filter((it) => !avoidIds.has(letterPickHitId(it)));
   const list = pool.length > 0 ? pool : LETTER_PICK_ITEMS;
-  const picked = list[indexFromRng(rng, list.length)]!;
-  lastHitId = letterPickHitId(picked);
-  return picked;
+  return list[indexFromRng(rng, list.length)]!;
 }
 
 /** Deterministic pick by absolute index into LETTER_PICK_ITEMS. */
@@ -884,13 +890,10 @@ function pickDistractors(
   return unique.slice(0, count);
 }
 
-/** Fill letter, five options, and solution id from catalog. */
-export function realizeLetterPickPuzzle(
-  puzzle: Puzzle,
+export function buildLetterPickRound(
+  hit: LetterPickEntry,
   rng: () => number = Math.random,
-): Puzzle {
-  if (!isLetterPickPuzzle(puzzle)) return puzzle;
-  const hit = pickHit(rng, lastHitId);
+): LetterPickRound {
   const distractors = pickDistractors(hit.key, letterPickHitId(hit), 4, rng);
   const options: LetterPickOption[] = [
     {
@@ -909,12 +912,66 @@ export function realizeLetterPickPuzzle(
   shuffleInPlace(options, rng);
   const upper = hit.key.toLocaleUpperCase("de-DE");
   return {
-    ...puzzle,
+    letter: hit.key,
     solution: letterPickHitId(hit),
-    voiceText: "",
     prompt: `Welches Wort hat ein ${upper}?`,
-    letterPickLetter: hit.key,
-    letterPickOptions: options,
+    options,
+  };
+}
+
+export function applyLetterPickRound(puzzle: Puzzle, round: LetterPickRound): Puzzle {
+  return {
+    ...puzzle,
+    solution: round.solution,
+    voiceText: "",
+    prompt: round.prompt,
+    letterPickLetter: round.letter,
+    letterPickOptions: round.options,
     anlautVisible: false,
   };
+}
+
+export function letterPickProgressLabel(
+  roundIndex: number,
+  total: number = LETTER_PICK_ROUNDS,
+): string {
+  const n = Math.min(total, Math.max(1, roundIndex + 1));
+  return `Wort ${n} von ${total}`;
+}
+
+/** Pick `count` distinct catalog hits; updates lastHitId to the final one. */
+export function pickLetterPickHits(
+  count: number = LETTER_PICK_ROUNDS,
+  rng: () => number = Math.random,
+): LetterPickEntry[] {
+  const n = Math.max(1, Math.min(count, LETTER_PICK_ITEMS.length));
+  const picked: LetterPickEntry[] = [];
+  const used = new Set<string>(lastHitId ? [lastHitId] : []);
+  for (let i = 0; i < n; i++) {
+    const hit = pickHit(rng, used);
+    picked.push(hit);
+    used.add(letterPickHitId(hit));
+  }
+  lastHitId = letterPickHitId(picked[picked.length - 1]!);
+  return picked;
+}
+
+/** Start a multi-round letterPick session. */
+export function startLetterPickSession(
+  puzzle: Puzzle,
+  rng: () => number = Math.random,
+): { puzzle: Puzzle; rounds: LetterPickRound[] } {
+  if (!isLetterPickPuzzle(puzzle)) return { puzzle, rounds: [] };
+  const hits = pickLetterPickHits(LETTER_PICK_ROUNDS, rng);
+  const rounds = hits.map((hit) => buildLetterPickRound(hit, rng));
+  return { puzzle: applyLetterPickRound(puzzle, rounds[0]!), rounds };
+}
+
+/** Fill letter, five options, and solution id from catalog (first of three rounds). */
+export function realizeLetterPickPuzzle(
+  puzzle: Puzzle,
+  rng: () => number = Math.random,
+): Puzzle {
+  if (!isLetterPickPuzzle(puzzle)) return puzzle;
+  return startLetterPickSession(puzzle, rng).puzzle;
 }

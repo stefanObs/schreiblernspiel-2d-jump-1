@@ -28,8 +28,12 @@ import {
 } from "./logic/letterPositionPuzzle";
 import { letterPosWordArt } from "./logic/letterPosWordArt";
 import {
+  LETTER_PICK_ROUNDS,
+  applyLetterPickRound,
   isLetterPickPuzzle,
-  realizeLetterPickPuzzle,
+  letterPickProgressLabel,
+  startLetterPickSession,
+  type LetterPickRound,
 } from "./logic/letterPickPuzzle";
 import { realizeMathPuzzle } from "./logic/mathPuzzle";
 import { isRepeatPuzzle, realizeRepeatPuzzle, repeatHearLabel } from "./logic/repeatPuzzle";
@@ -86,7 +90,12 @@ export function openPuzzle(puzzle: Puzzle, handlers: OverlayHandlers): void {
     puzzle = session.puzzle;
     letterPosRounds = session.rounds;
   }
-  puzzle = realizeLetterPickPuzzle(puzzle);
+  let letterPickRounds: LetterPickRound[] = [];
+  if (isLetterPickPuzzle(puzzle)) {
+    const session = startLetterPickSession(puzzle, queryRng);
+    puzzle = session.puzzle;
+    letterPickRounds = session.rounds;
+  }
   puzzle = realizeMathPuzzle(puzzle);
   current = puzzle;
   wrongAttempts = 0;
@@ -113,6 +122,7 @@ export function openPuzzle(puzzle: Puzzle, handlers: OverlayHandlers): void {
     "puzzle-letter-pos-img",
   ) as HTMLImageElement | null;
   const letterPick = document.getElementById("puzzle-letter-pick");
+  const letterPickProgress = document.getElementById("puzzle-letter-pick-progress");
   const letterPickLetter = document.getElementById("puzzle-letter-pick-letter");
   const letterPickTiles = document.getElementById("puzzle-letter-pick-tiles");
   const okBtn = document.getElementById("puzzle-ok");
@@ -136,6 +146,7 @@ export function openPuzzle(puzzle: Puzzle, handlers: OverlayHandlers): void {
     !letterPosWordBtn ||
     !letterPosImg ||
     !letterPick ||
+    !letterPickProgress ||
     !letterPickLetter ||
     !letterPickTiles ||
     !okBtn ||
@@ -244,41 +255,61 @@ export function openPuzzle(puzzle: Puzzle, handlers: OverlayHandlers): void {
       };
     }
   } else if (isLetterPick) {
-    const upper = (puzzle.letterPickLetter ?? "").toLocaleUpperCase("de-DE");
-    letterPickLetter.textContent = upper;
-    letterPickTiles.innerHTML = "";
+    const totalRounds = letterPickRounds.length || LETTER_PICK_ROUNDS;
+    let roundIndex = 0;
     let selectedId: string | null = null;
-    const options = puzzle.letterPickOptions ?? [];
-    for (const opt of options) {
-      const btn = document.createElement("button");
-      btn.type = "button";
-      btn.dataset.optId = opt.id;
-      btn.setAttribute("aria-label", opt.display);
-      const img = document.createElement("img");
-      img.className = "letter-pick-img";
-      img.alt = "";
-      img.decoding = "async";
-      img.src = `/${opt.artPath}`;
-      const fallback = document.createElement("span");
-      fallback.className = "letter-pick-fallback";
-      fallback.textContent = "?";
-      fallback.hidden = true;
-      img.onerror = () => {
-        img.hidden = true;
-        fallback.hidden = false;
-      };
-      btn.append(img, fallback);
-      btn.onclick = () => {
-        selectedId = opt.id;
-        for (const other of letterPickTiles.querySelectorAll("button")) {
-          other.classList.toggle("selected", other === btn);
-        }
-        letterPickTiles.classList.remove("wrong");
-        err.textContent = "";
-        speakFn(opt.voiceText || opt.display);
-      };
-      letterPickTiles.appendChild(btn);
-    }
+
+    const renderLetterPickTiles = () => {
+      letterPickTiles.innerHTML = "";
+      selectedId = null;
+      letterPickTiles.classList.remove("wrong");
+      const options = puzzle.letterPickOptions ?? [];
+      for (const opt of options) {
+        const btn = document.createElement("button");
+        btn.type = "button";
+        btn.dataset.optId = opt.id;
+        btn.setAttribute("aria-label", opt.display);
+        const img = document.createElement("img");
+        img.className = "letter-pick-img";
+        img.alt = "";
+        img.decoding = "async";
+        img.src = `/${opt.artPath}`;
+        const fallback = document.createElement("span");
+        fallback.className = "letter-pick-fallback";
+        fallback.textContent = "?";
+        fallback.hidden = true;
+        img.onerror = () => {
+          img.hidden = true;
+          fallback.hidden = false;
+        };
+        btn.append(img, fallback);
+        btn.onclick = () => {
+          selectedId = opt.id;
+          for (const other of letterPickTiles.querySelectorAll("button")) {
+            other.classList.toggle("selected", other === btn);
+          }
+          letterPickTiles.classList.remove("wrong");
+          err.textContent = "";
+          speakFn(opt.voiceText || opt.display);
+        };
+        letterPickTiles.appendChild(btn);
+      }
+    };
+
+    const showLetterPickRound = (index: number) => {
+      const round = letterPickRounds[index];
+      if (!round) return;
+      puzzle = applyLetterPickRound(puzzle, round);
+      current = puzzle;
+      roundIndex = index;
+      letterPickProgress.textContent = letterPickProgressLabel(index, totalRounds);
+      letterPickLetter.textContent = round.letter.toLocaleUpperCase("de-DE");
+      err.textContent = "";
+      renderLetterPickTiles();
+      applyWritingModeUi();
+    };
+
+    showLetterPickRound(0);
     okBtn.onclick = () => {
       if (!selectedId) {
         err.textContent = "Bitte ein Bild auswählen.";
@@ -287,7 +318,11 @@ export function openPuzzle(puzzle: Puzzle, handlers: OverlayHandlers): void {
       const result = matchPuzzle(puzzle, selectedId);
       if (result.ok) {
         solvedEffect = result.effect === "none" ? puzzle.effect : result.effect;
-        finishOk();
+        if (roundIndex + 1 < totalRounds) {
+          showLetterPickRound(roundIndex + 1);
+        } else {
+          finishOk();
+        }
       } else {
         wrongAttempts += 1;
         letterPickTiles.classList.add("wrong");

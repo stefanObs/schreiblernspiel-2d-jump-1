@@ -1,12 +1,16 @@
 import { beforeEach, describe, expect, it } from "vitest";
 import {
   LETTER_PICK_ITEMS,
+  LETTER_PICK_ROUNDS,
+  applyLetterPickRound,
   isLetterPickPuzzle,
   letterPickHitId,
   letterPickItemsForKey,
+  letterPickProgressLabel,
   realizeLetterPickPuzzle,
   resetLetterPickPick,
   rngForLetterPickIndex,
+  startLetterPickSession,
   wordContainsLetter,
 } from "../src/logic/letterPickPuzzle";
 import { matchPuzzle } from "../src/logic/matchPuzzle";
@@ -68,5 +72,27 @@ describe("letterPick realize + match", () => {
   it("hit id is key|slug of the catalog entry", () => {
     const first = LETTER_PICK_ITEMS[0]!;
     expect(letterPickHitId(first)).toBe(`${first.key}|${first.slug}`);
+  });
+
+  it("starts a session with three distinct hit rounds", () => {
+    expect(LETTER_PICK_ROUNDS).toBe(3);
+    const raw = builtinPuzzles().find((p) => p.id === "bach-letter-pick")!;
+    const { puzzle, rounds } = startLetterPickSession(raw, rngForLetterPickIndex(0));
+    expect(rounds).toHaveLength(3);
+    const ids = rounds.map((r) => r.solution);
+    expect(new Set(ids).size).toBe(3);
+    expect(puzzle.solution).toBe(rounds[0]!.solution);
+    expect(puzzle.letterPickLetter).toBe(rounds[0]!.letter);
+    const second = applyLetterPickRound(puzzle, rounds[1]!);
+    expect(second.solution).toBe(rounds[1]!.solution);
+    expect(matchPuzzle(second, rounds[1]!.solution).ok).toBe(true);
+    expect(letterPickProgressLabel(0)).toBe("Wort 1 von 3");
+    expect(letterPickProgressLabel(2)).toBe("Wort 3 von 3");
+    for (const round of rounds) {
+      expect(round.options).toHaveLength(5);
+      const hits = round.options.filter((o) => wordContainsLetter(o.display, round.letter));
+      expect(hits).toHaveLength(1);
+      expect(hits[0]!.id).toBe(round.solution);
+    }
   });
 });
