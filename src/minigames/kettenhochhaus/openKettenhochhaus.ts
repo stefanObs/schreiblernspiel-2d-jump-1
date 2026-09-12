@@ -154,7 +154,7 @@ export function openKettenhochhaus(puzzle: Puzzle, handlers: KettenhochhausHandl
       stars = showStars(wrong);
     },
   });
-  app.start();
+  void app.start();
 
   const onResize = () => app?.resize();
   window.addEventListener("resize", onResize);

@@ -1,4 +1,6 @@
 import { describe, expect, it } from "vitest";
+import { existsSync } from "node:fs";
+import { join } from "node:path";
 import { LETTER_POS_ITEMS } from "../src/logic/letterPositionPuzzle";
 import { STATION_SLOTS } from "../src/logic/puzzleCategories";
 import { builtinPuzzles } from "../src/logic/puzzleStore";
@@ -10,6 +12,8 @@ import {
   clickZone,
   createSim,
   currentChain,
+  KETTENHOCHHAUS_PROP_IDS,
+  KETTENHOCHHAUS_URLS,
   MAX_LIVES,
   pickChainRounds,
   zoneOfIndex,
@@ -107,5 +111,16 @@ describe("kettenhochhaus station wiring", () => {
     expect(rounds).toHaveLength(4);
     const keys = new Set(rounds.map((r) => `${r.letter}|${r.word}`));
     expect(keys.size).toBe(4);
+  });
+});
+
+describe("kettenhochhaus tripo models", () => {
+  it("ships loader URLs for all MVP props with baked GLBs on disk", () => {
+    expect(KETTENHOCHHAUS_PROP_IDS).toEqual(["chain", "highrise", "hose", "ground"]);
+    for (const id of KETTENHOCHHAUS_PROP_IDS) {
+      expect(KETTENHOCHHAUS_URLS[id]).toBe(`/models/kettenhochhaus/${id}.glb`);
+      const disk = join(process.cwd(), "public", "models", "kettenhochhaus", `${id}.glb`);
+      expect(existsSync(disk), `missing ${disk}`).toBe(true);
+    }
   });
 });

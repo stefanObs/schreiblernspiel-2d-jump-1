@@ -24,3 +24,8 @@ export {
 } from "./chainList";
 export { openKettenhochhaus, isKettenhochhausOpen } from "./openKettenhochhaus";
 export { KettenhochhausApp } from "./render/KettenhochhausScene";
+export {
+  KETTENHOCHHAUS_PROP_IDS,
+  KETTENHOCHHAUS_URLS,
+  preloadKettenhochhausModels,
+} from "./loadModels";

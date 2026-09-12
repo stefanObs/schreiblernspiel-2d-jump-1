@@ -1,6 +1,6 @@
 # Slices: kettenhochhaus
 
-**Status:** In Arbeit (S01 erledigt)  
+**Status:** In Arbeit (S01–S03 erledigt)  
 **Aufgabe:** Neues 3D-Minispiel: Mech läuft zum brennenden Hochhaus, muss 4 Ketten per Buchstaben-Position (Anfang/Mitte/Ende) durchschlagen, 3 Leben, danach Lösch-Animation.  
 **Datum:** 2026-09-12  
 **Zuschnitt:** vier Feature-Slices (Vertrag/Pipeline, Runtime+Regeln, Tripo-Assets, Abschluss-Animationen)  
@@ -14,7 +14,7 @@ Feature-Schritte, keine Prozess-Schritte. Fast-Path: nein (neues 3D-Minispiel + 
 |----|-------|---------|----------------|--------|
 | S01 | `S01-vertrag-pipeline.md` | Ownership + Tripo-Pipeline für `kettenhochhaus` | — | erledigt |
 | S02 | `S02-runtime-ketten.md` | Spielregeln, 3D-Runtime, Overlay/Pause, Station | S01 | erledigt |
-| S03 | `S03-tripo-assets.md` | Tripo-GLBs (Kette, Hochhaus, Props) verdrahten | S02 | offen |
+| S03 | `S03-tripo-assets.md` | Tripo-GLBs (Kette, Hochhaus, Props) verdrahten | S02 | erledigt |
 | S04 | `S04-bruch-loesch-anim.md` | Kettenbruch- + Lauf-/Lösch-Animation | S03 | offen |
 
 Status nur: `offen` → `in Arbeit` → `erledigt` (nach Pass + Git).

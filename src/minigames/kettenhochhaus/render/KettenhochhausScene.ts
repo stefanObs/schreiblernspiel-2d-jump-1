@@ -18,6 +18,11 @@ import {
 } from "three";
 import type { Object3D } from "three";
 import {
+  cloneKettenhochhausProp,
+  hasKettenhochhausModel,
+  preloadKettenhochhausModels,
+} from "../loadModels";
+import {
   brokenMask,
   chainProgress,
   clickZone,
@@ -116,6 +121,34 @@ function makeZonePad(zone: ChainZone, color: number): Group {
   return g;
 }
 
+function proceduralGround(): Mesh {
+  return new Mesh(
+    new BoxGeometry(18, 0.2, 12),
+    new MeshStandardMaterial({ color: 0x5c8f4a, roughness: 0.95 }),
+  );
+}
+
+function proceduralHose(): Group {
+  const g = new Group();
+  const rubber = new MeshStandardMaterial({ color: 0xc62828, roughness: 0.7, metalness: 0.1 });
+  const coil = new Mesh(new CylinderGeometry(0.35, 0.35, 0.22, 16), rubber);
+  coil.position.y = 0.12;
+  const nozzle = new Mesh(
+    new BoxGeometry(0.45, 0.1, 0.1),
+    new MeshStandardMaterial({ color: 0xb0bec5, metalness: 0.6, roughness: 0.35 }),
+  );
+  nozzle.position.set(0.4, 0.18, 0);
+  g.add(coil, nozzle);
+  return g;
+}
+
+function mountProp(
+  id: "chain" | "highrise" | "hose" | "ground",
+  fallback: () => Object3D,
+): Object3D {
+  return (hasKettenhochhausModel(id) && cloneKettenhochhausProp(id)) || fallback();
+}
+
 export class KettenhochhausApp {
   private renderer: WebGLRenderer;
   private scene = new Scene();
@@ -156,7 +189,9 @@ export class KettenhochhausApp {
     canvas.addEventListener("pointerdown", this.onPointer);
   }
 
-  start(): void {
+  async start(): Promise<void> {
+    if (this.disposed) return;
+    await preloadKettenhochhausModels();
     if (this.disposed) return;
     this.buildScene();
     this.resize();
@@ -214,27 +249,42 @@ export class KettenhochhausApp {
     sun.position.set(4, 9, 3);
     this.scene.add(sun);
 
-    const ground = new Mesh(
-      new BoxGeometry(18, 0.2, 12),
-      new MeshStandardMaterial({ color: 0x5c8f4a, roughness: 0.95 }),
-    );
-    ground.position.y = -0.1;
+    const ground = mountProp("ground", proceduralGround);
+    if (hasKettenhochhausModel("ground")) {
+      ground.scale.set(1.35, 0.35, 1.1);
+      ground.position.set(0.4, 0, 0.2);
+    } else {
+      ground.position.y = -0.1;
+    }
     this.scene.add(ground);
 
-    this.building = proceduralBuilding();
+    const buildingMesh = mountProp("highrise", proceduralBuilding);
+    this.building = buildingMesh as Group;
     this.building.position.set(2.6, 0, -1.2);
+    if (hasKettenhochhausModel("highrise")) {
+      this.building.scale.setScalar(0.95);
+    }
     this.scene.add(this.building);
 
+    const flameY = hasKettenhochhausModel("highrise") ? 3.15 : 4.6;
     for (let i = 0; i < 4; i++) {
       const flame = proceduralFlame();
       flame.position.set(
         2.6 + (i % 2 === 0 ? -0.35 : 0.35),
-        4.6 + (i < 2 ? 0 : 0.25),
+        flameY + (i < 2 ? 0 : 0.25),
         -1.2 + (i < 2 ? 0.4 : -0.2),
       );
       this.flames.push(flame);
       this.scene.add(flame);
     }
+
+    const hose = mountProp("hose", proceduralHose);
+    hose.position.set(-3.1, 0, 0.2);
+    if (hasKettenhochhausModel("hose")) {
+      hose.scale.setScalar(0.9);
+      hose.rotation.y = -Math.PI / 2;
+    }
+    this.scene.add(hose);
 
     this.mech = proceduralMech();
     this.mech.position.set(-2.4, 0, 1.2);
@@ -244,10 +294,16 @@ export class KettenhochhausApp {
     const chainXs = [-1.2, -0.15, 0.9, 1.95];
     for (let i = 0; i < 4; i++) {
       const root = new Group();
-      const link = proceduralChainLink();
-      link.scale.setScalar(1.35);
+      const link = mountProp("chain", proceduralChainLink);
+      if (hasKettenhochhausModel("chain")) {
+        link.scale.setScalar(1.0);
+        link.rotation.y = Math.PI / 2;
+        link.position.y = 0.55;
+      } else {
+        link.scale.setScalar(1.35);
+      }
       root.add(link);
-      root.position.set(chainXs[i]!, 1.35, 0.35);
+      root.position.set(chainXs[i]!, hasKettenhochhausModel("chain") ? 0.8 : 1.35, 0.35);
       this.chainRoots.push(root);
       this.scene.add(root);
     }
