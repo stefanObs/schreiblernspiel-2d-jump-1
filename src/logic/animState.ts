@@ -1,13 +1,19 @@
 import type { FormId } from "./playerRules";
 
-export type PlayerPose = "idle" | "walk" | "air";
+export type PlayerPose = "idle" | "walk" | "air" | "climb";
 export type SpawnKind = "bridge" | "rope" | "ladder" | "platform";
 
 export const LAND_MS = 260;
 export const TAKEOFF_MS = 100;
 
-export function playerPose(grounded: boolean, speedX: number, paused: boolean): PlayerPose {
+export function playerPose(
+  grounded: boolean,
+  speedX: number,
+  paused: boolean,
+  climbing = false,
+): PlayerPose {
   if (paused) return "idle";
+  if (climbing) return "climb";
   if (!grounded) return "air";
   return Math.abs(speedX) > 40 ? "walk" : "idle";
 }
@@ -49,6 +55,10 @@ export function poseScale(
   velocityY = 0,
 ): { x: number; y: number } {
   if (pose === "air") return airScale(velocityY, form);
+  if (pose === "climb") {
+    const bob = Math.sin(timeMs / 140) * 0.04;
+    return { x: 1 - bob * 0.3, y: 1 + bob };
+  }
   if (pose === "walk") {
     // Mech has real leg frames — no extra squash (it reads as jitter).
     if (form === "mech") return { x: 1, y: 1 };
@@ -73,6 +83,7 @@ export function poseAngle(
   velocityY = 0,
 ): number {
   if (pose === "air") return airAngle(velocityY, facingLeft, form);
+  if (pose === "climb") return facingLeft ? -4 : 4;
   if (pose === "walk" && form === "auto") {
     const rock = Math.sin(timeMs / 65) * 5;
     const lean = facingLeft ? 4 : -4;

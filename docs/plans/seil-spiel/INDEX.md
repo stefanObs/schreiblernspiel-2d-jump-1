@@ -12,7 +12,7 @@
 |----|-------|---------|----------------|--------|
 | S01 | `S01-welt-seil-visual.md` | Dünnes Welten-Seil von oben; Motiv-Art unverändert | — | erledigt |
 | S02 | `S02-seil-schwingen.md` | Separates Schwing-Seil + Swing-Animation | S01 | offen |
-| S03 | `S03-seil-klettern.md` | Separates Kletter-Seil + Climb-Animation | S01 | offen |
+| S03 | `S03-seil-klettern.md` | Separates Kletter-Seil + Climb-Animation | S01 | erledigt |
 
 ## Nicht in dieser Aufgabe
 

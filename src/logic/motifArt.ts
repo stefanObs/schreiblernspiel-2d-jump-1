@@ -17,6 +17,7 @@ const MOTIF_ART: Record<string, string> = {
 function motifFromEffect(effect: WorldEffect): string | undefined {
   switch (effect) {
     case "spawn_bridge":
+    case "spawn_lake_bridge":
       return "bridge";
     case "spawn_rope":
       return "rope";
