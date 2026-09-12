@@ -1,0 +1,17 @@
+---
+description: Route Tripo / Ballkanone & Kettenhochhaus 3D mesh authoring to the tripo-3d-assets skill.
+globs:
+  - public/models/**/*
+  - scripts/bake-*-tripo.mjs
+  - assets/tripo-concepts/**/*
+alwaysApply: false
+---
+
+# Tripo 3D assets
+
+When creating, rebuilding, or debugging **Tripo / GLB** meshes for Ballkanone or Kettenhochhaus:
+
+1. Read `.cursor/skills/tripo-3d-assets/SKILL.md` (and `pipeline.md` when baking)
+2. Follow `docs/AGENT_OWNERS.md` — do not edit Stil-C `public/art/**` or minigame sim code
+3. Keep realistic PBR materials; do not apply comic/toon conversion
+4. Keep `ballkanone` and `kettenhochhaus` paths separate (concepts, tripo-out, models, bake scripts)

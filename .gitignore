@@ -4,6 +4,7 @@ dist/
 .vite/
 *.local
 .DS_Store
+# Tripo raw out (ballkanone + kettenhochhaus); never commit
 assets/tripo-out/
 assets/letterpick-gen/
 .tripo/

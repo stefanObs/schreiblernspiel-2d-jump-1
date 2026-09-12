@@ -6,12 +6,25 @@
     "dev": "vite",
     "build": "tsc --noEmit && vite build",
     "preview": "vite preview",
-    "test": "vitest run"
+    "test": "vitest run",
+    "test:e2e": "playwright test",
+    "verify:art": "python3 scripts/verify_art_alpha.py",
+    "ballkanone:bake-tripo": "node scripts/bake-ballkanone-tripo.mjs",
+    "kettenhochhaus:bake-tripo": "node scripts/bake-kettenhochhaus-tripo.mjs"
   },
   "dependencies": {
     "phaser": "^3.87.0",
+    "three": "^0.185.1",
     "typescript": "^7.0.2",
     "vite": "^8.2.2",
     "vitest": "^5.0.0"
+  },
+  "devDependencies": {
+    "@gltf-transform/core": "^4.4.1",
+    "@gltf-transform/extensions": "^4.4.1",
+    "@gltf-transform/functions": "^4.4.1",
+    "@playwright/test": "^1.63.0",
+    "@types/three": "^0.185.1",
+    "meshoptimizer": "^1.2.0"
   }
 }

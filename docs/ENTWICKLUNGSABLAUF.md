@@ -10,6 +10,8 @@ Verbindlicher Ablauf für Features und größere Änderungen am *Schreiblernspie
 
 **Invarianten (immer):** Pause beim Schreiben/Rechnen · Textfeld + Pen-Tastatur · Hör-Hinweis wiederholbar · Anlauttabelle ohne Autofill · Transform nur `Mech` / `Auto` / `Schiff` / `Flug`
 
+**Agent-Ownership (Pfad = Wahrheit):** [`docs/AGENT_OWNERS.md`](AGENT_OWNERS.md) — u. a. `comic-rettung-art` nur Stil-C PNG, `tripo-3d-assets` nur Ballkanone-/Kettenhochhaus-GLBs / Tripo-Bake, `feature-implementer` ohne `tripo make`.
+
 ```mermaid
 flowchart TB
   Task[User_Aufgabe] --> Size{Mehr_als_ein_Slice_oder_unklar?}
@@ -81,6 +83,7 @@ INDEX trotzdem anlegen. Ohne INDEX keine Lieferung der Gesamtaufgabe.
 - Mathe: Plus + Größer/Kleiner (gemeinsame Pause/Textfeld-Pipeline)
 - Transform: Mech + Auto
 - Nachzeichnen: Brücke + Leiter
++ Nachzeichnen: ca. 20 Motive (Brücke mit Geländer, Haus, Auto, Segelschiff, …)
 - Editor: Erfassen + Speichern eines Rätseltyps
 - Level: ein Abschnitt mit zwei Stationen
 - Prozess/Docs: ein Thema = ein Slice
@@ -149,6 +152,7 @@ INDEX-Zeile zu Beginn `in Arbeit`.
 - Bugs: erst Regressionstest rot, dann Fix grün
 - Suite **einmal** grün, Handoff `suite green: yes/no`
 - **Art:** `comic-rettung-art` **nur** wenn Slice `Art: ja` **und** eine Dateiliste hat. Sonst CSS/SVG/Platzhalter. Nie „mitdenken“
+- Nach Art **Pflicht:** `python3 scripts/process_art_alpha.py` und `python3 scripts/verify_art_alpha.py` (Exit 0). Jeder Sprite-Hintergrund muss transparent sein — keine weiße/graue/schwarze KI-Platte, kein Halo. Verify rot = nicht übergeben.
 - Kein Scope auf Nachbarn; kein INDEX `erledigt`
 
 ---
@@ -196,7 +200,8 @@ Die Action `Laufnummer` (Push auf `master`) zählt in `version.txt` hoch, commit
 | `task-slicer` | ≥2 Slices oder unklarer Scope — nicht Fast-Path |
 | `feature-planner` | Bugs / Art-Dateien / Multi-System / unklar; zuerst Plan-Modus, Dateien erst im Agent-Modus |
 | `feature-implementer` | Nicht Fast-Path; ein Slice inkl. Tests |
-| `comic-rettung-art` | Nur `Art: ja` + Dateinamen im Slice |
+| `comic-rettung-art` | Nur `Art: comic-rettung-art` / `Art: ja` + Dateinamen im Slice; danach Alpha-Verify grün |
+| `tripo-3d-assets` | Nur `Art: tripo-3d-assets` + GLB-Namen; Skill `.cursor/skills/tripo-3d-assets/` |
 | `code-reviewer` | Spielsichtbar und nicht trivial |
 | `automated-verifier` | Suite nicht grün / kein Handoff / Nachcode nach Review / User will Verify |
 
