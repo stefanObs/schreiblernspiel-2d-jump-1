@@ -1,3 +1,5 @@
+import type { TraceTemplate } from "./traceTemplates";
+
 export type HintMode = "hear" | "motif";
 export type PuzzleType =
   | "word"
@@ -6,6 +8,7 @@ export type PuzzleType =
   | "trace"
   | "ballkanone"
   | "buchstabenstrasse"
+  | "kettenhochhaus"
   | "letterPos"
   | "letterPick";
 export type LetterPickOption = {
@@ -20,6 +23,7 @@ export type RepeatKind = "digit" | "letter-or-digit";
 export type BallkanoneVariant = "static" | "track" | "peek";
 export type WorldEffect =
   | "spawn_bridge"
+  | "spawn_lake_bridge"
   | "spawn_rope"
   | "spawn_ladder"
   | "spawn_platform"
@@ -51,7 +55,8 @@ export type Puzzle = {
   countdownFrom?: number;
   plusA?: number;
   plusB?: number;
-  traceTemplate?: "bridge" | "ladder";
+  /** Silhouette for Nachzeichnen (see TRACE_TEMPLATES). */
+  traceTemplate?: TraceTemplate;
   anlautVisible?: boolean;
   /** Display syllables for Silbenbogen hints (e.g. ["Brü","cke"]). */
   syllables?: string[];

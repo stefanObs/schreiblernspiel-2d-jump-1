@@ -3,15 +3,18 @@ import { freeTransformPuzzle, mergedPuzzles } from "../logic/puzzleStore";
 import type { Puzzle, WorldEffect } from "../logic/puzzleTypes";
 import {
   CATEGORIES_CHANGED_EVENT,
-  enabledStationSlots,
+  resolvedStationSlots,
   pickRandomPuzzle,
   puzzleForSlot,
   type StationSlotDef,
 } from "../logic/puzzleCategories";
 import {
   RESPAWN,
+  canClimb,
   canJump,
+  climbVelocityY,
   combineMove,
+  CLIMB_GRAB_DX,
   jumpVelocity,
   moveSpeed,
   type CharacterId,
@@ -26,13 +29,28 @@ import {
   takeoffOverlay,
   type SpawnKind,
 } from "../logic/animState";
+import {
+  CHECKPOINT_AFTER_X,
+  GOAL_X,
+  LAYOUT_SCALE,
+  SOLID_FLOORS,
+  SPAWN_PARTS,
+  STREET_CROSSING,
+  TREEHOUSE,
+  WATER_GAPS,
+  WORLD,
+  spawnPartsForEffect,
+  u,
+  type SpawnPartDef,
+} from "../logic/bachbrueckeLayout";
 import { MECH_ART, MECH_CHARS, alternateShape, artPublicPath, characterDisplayName, shapeDisplayName, textureFor } from "../logic/mechCatalog";
-import { isDebugMode } from "../logic/writingMode";
+import { isAutoSolvePuzzles, isDebugMode } from "../logic/writingMode";
 import { DEBUG_OPEN_PUZZLE_EVENT, type DebugOpenPuzzleDetail } from "../logic/debugPuzzles";
 import { parsePuzzleQuery } from "../logic/puzzleQuery";
 import { isOverlayOpen, openPuzzle } from "../puzzleUi";
 import { openBallkanone } from "../minigames/ballkanone";
 import { openBuchstabenstrasse } from "../minigames/buchstabenstrasse";
+import { openKettenhochhaus } from "../minigames/kettenhochhaus";
 import { unlockSpeech } from "../logic/speech";
 
 type Station = StationSlotDef & {
@@ -40,15 +58,25 @@ type Station = StationSlotDef & {
   y: number;
 };
 
-const S = 1.5;
-const u = (n: number) => Math.round(n * S);
-const W = u(3600);
-const H = u(720);
-const GROUND = u(620);
+type PartRuntime = {
+  def: SpawnPartDef;
+  /** Solid collider (bridges, platforms, ladder_top). */
+  solid?: Phaser.GameObjects.Rectangle;
+  /** Climb overlap sensor (rope, ladder). */
+  climb?: Phaser.GameObjects.Rectangle;
+  view?: Phaser.GameObjects.Image;
+};
+
+const W = u(WORLD.width);
+const H = u(WORLD.height);
+const GROUND = u(WORLD.groundY);
 /** Invisible collider top — a bit below the drawn grass edge so boots sit in the turf. */
 const WALK_Y = GROUND + u(12);
+/** Bottom of planted props (trees, signs, meadow) — matches walk surface, not the drawn edge. */
+const PROP_FEET_Y = WALK_Y;
 const MECH_SIZE = { w: u(96), h: u(134) };
 const AUTO_SIZE = { w: u(150), h: u(86) };
+const CLIMB_DETACH_VY = -360;
 
 export class BachbrueckeScene extends Phaser.Scene {
   private player!: Phaser.Physics.Arcade.Sprite;
@@ -59,12 +87,15 @@ export class BachbrueckeScene extends Phaser.Scene {
   private jumpAsMech = false;
   private worldPaused = false;
   private grounded = false;
+  private climbing = false;
+  private climbAnchorX = 0;
   private solved = new Set<string>();
   private stations: Station[] = [];
   private activeSlotId: string | null = null;
-  private hiddenParts: Phaser.GameObjects.Rectangle[] = [];
-  private propViews: Phaser.GameObjects.Image[] = [];
+  private partsById = new Map<string, PartRuntime>();
   private stationViews: Phaser.GameObjects.Image[] = [];
+  private streetCrossingDone = false;
+  private pendingStreetCrossing = false;
   private onCategoriesChanged = (): void => {
     this.rebuildStations();
   };
@@ -79,10 +110,12 @@ export class BachbrueckeScene extends Phaser.Scene {
     left: Phaser.Input.Keyboard.Key;
     right: Phaser.Input.Keyboard.Key;
     up: Phaser.Input.Keyboard.Key;
+    down: Phaser.Input.Keyboard.Key;
     space: Phaser.Input.Keyboard.Key;
     a: Phaser.Input.Keyboard.Key;
     d: Phaser.Input.Keyboard.Key;
     w: Phaser.Input.Keyboard.Key;
+    s: Phaser.Input.Keyboard.Key;
   };
   private checkpoint = { ...RESPAWN };
 
@@ -101,6 +134,8 @@ export class BachbrueckeScene extends Phaser.Scene {
     this.load.image("prop-rope", "art/prop_rope.png");
     this.load.image("prop-rope-world", "art/prop_rope_world.png");
     this.load.image("prop-ladder", "art/prop_ladder.png");
+    this.load.image("prop-treehouse", "art/prop_treehouse.png");
+    this.load.image("prop-hochhaus", "art/prop_hochhaus.png");
     this.load.image("station-sign", "art/station_sign.png");
     this.load.image("prop-tree", "art/prop_tree.png");
     this.load.image("prop-house", "art/prop_house.png");
@@ -115,46 +150,61 @@ export class BachbrueckeScene extends Phaser.Scene {
     this.createAnims();
     this.drawBackdrop();
     this.placeFarRidge();
+    this.placeSkyline();
     this.placeClouds();
     this.placeWater();
+    this.placeTreehouse();
     this.placeTown();
     this.placeMeadowDecor();
     const statics = this.physics.add.staticGroup();
-    statics.add(this.block(u(380), WALK_Y + u(40), u(760), u(80), 0x3dcc5a, false, true));
-    statics.add(this.block(u(2320), WALK_Y + u(40), u(2560), u(80), 0x3dcc5a, false, true));
-    statics.add(this.block(u(1720), u(380), u(420), u(36), 0x3dcc5a, false, true));
 
-    this.hiddenParts = [
-      // Same thickness as grass banks; span the full stream gap (u(760)→u(1040)).
-      this.block(u(900), WALK_Y + u(40), u(340), u(80), 0x8d6e63, false),
-      // Thin world rope from sky (climb/swing bodies land in later slices).
-      this.block(u(1480), GROUND / 2, u(10), GROUND, 0x6d4c41, false),
-      this.block(u(2080), u(500), u(36), u(220), 0xffcc80, false),
-      this.block(u(1980), u(500), u(200), u(28), 0x81c784, false),
-    ];
-    for (const p of this.hiddenParts) statics.add(p);
-    // staticGroup add can leave bodies in the tree; keep hidden until showPart.
-    for (const p of this.hiddenParts) {
-      (p.body as Phaser.Physics.Arcade.StaticBody).enable = false;
+    for (const floor of SOLID_FLOORS) {
+      statics.add(
+        this.block(
+          u(floor.x),
+          this.solidCenterY(floor.y, floor.h),
+          u(floor.w),
+          u(floor.h),
+          0x3dcc5a,
+          false,
+          true,
+        ),
+      );
     }
+    statics.add(
+      this.block(
+        u(TREEHOUSE.floor.x),
+        this.solidCenterY(TREEHOUSE.floor.y, TREEHOUSE.floor.h),
+        u(TREEHOUSE.floor.w),
+        u(TREEHOUSE.floor.h),
+        0x8d6e63,
+        false,
+        true,
+      ),
+    );
 
-    const ropeH = GROUND - u(8);
-    this.propViews = [
-      this.add
-        .image(u(900), WALK_Y, "prop-bridge")
-        .setOrigin(0.5, 0.42)
-        .setDisplaySize(u(340), u(100))
-        .setVisible(false)
-        .setDepth(6),
-      this.add
-        .image(u(1480), 0, "prop-rope-world")
-        .setOrigin(0.5, 0)
-        .setDisplaySize(u(14), ropeH)
-        .setVisible(false)
-        .setDepth(6),
-      this.add.image(u(2080), u(500), "prop-ladder").setDisplaySize(u(70), u(250)).setVisible(false).setDepth(6),
-      this.add.image(u(1980), u(500), "prop-bridge").setDisplaySize(u(220), u(50)).setVisible(false).setDepth(6),
-    ];
+    this.partsById.clear();
+    for (const def of SPAWN_PARTS) {
+      const part: PartRuntime = { def };
+      const cx = u(def.x);
+      const cy = this.solidCenterY(def.y, def.h);
+      const bw = u(def.w);
+      const bh = u(def.h);
+
+      if (def.kind === "rope" || def.kind === "ladder") {
+        const sensor = this.block(cx, u(def.y), bw, bh, 0x6d4c41, false, false);
+        part.climb = sensor;
+      } else {
+        const solid = this.block(cx, cy, bw, bh, 0x8d6e63, false, false);
+        statics.add(solid);
+        part.solid = solid;
+      }
+
+      if (!("withParent" in def && def.withParent)) {
+        part.view = this.makePropView(def);
+      }
+      this.partsById.set(def.id, part);
+    }
 
     this.player = this.physics.add.sprite(RESPAWN.x, RESPAWN.y, MECH_ART.bolt.mechKey);
     this.player.setOrigin(0.5, 1);
@@ -188,12 +238,11 @@ export class BachbrueckeScene extends Phaser.Scene {
       })
       .setScrollFactor(0)
       .setDepth(21);
-    const goal = this.add
-      .image(u(3480), GROUND + u(4), "station-sign")
+    this.add
+      .image(u(GOAL_X), PROP_FEET_Y, "station-sign")
       .setOrigin(0.5, 1)
       .setDisplaySize(u(78), u(110))
       .setDepth(2);
-    this.bob(goal, u(4), 900);
     this.wireHud();
     this.wireKeyboard();
     this.wireDebugOpeners();
@@ -202,6 +251,50 @@ export class BachbrueckeScene extends Phaser.Scene {
       window.removeEventListener(CATEGORIES_CHANGED_EVENT, this.onCategoriesChanged);
     });
     this.openQueryPuzzle();
+  }
+
+  /**
+   * Ground-aligned layout y values are the walk surface (groundY+12);
+   * elevated platforms use true center y.
+   */
+  private solidCenterY(layoutY: number, layoutH: number): number {
+    if (layoutY >= WORLD.groundY) {
+      return WALK_Y + u(layoutH) / 2;
+    }
+    return u(layoutY);
+  }
+
+  private makePropView(def: SpawnPartDef): Phaser.GameObjects.Image {
+    const cx = u(def.x);
+    if (def.kind === "bridge") {
+      return this.add
+        .image(cx, WALK_Y, "prop-bridge")
+        .setOrigin(0.5, 0.42)
+        .setDisplaySize(u(def.w), u(Math.round(def.h * 1.25)))
+        .setVisible(false)
+        .setDepth(6);
+    }
+    if (def.kind === "rope") {
+      const ropeH = u(def.h);
+      return this.add
+        .image(cx, u(def.y) - ropeH / 2, "prop-rope-world")
+        .setOrigin(0.5, 0)
+        .setDisplaySize(u(14), ropeH)
+        .setVisible(false)
+        .setDepth(6);
+    }
+    if (def.kind === "ladder") {
+      return this.add
+        .image(cx, u(def.y), "prop-ladder")
+        .setDisplaySize(u(70), u(def.h))
+        .setVisible(false)
+        .setDepth(6);
+    }
+    return this.add
+      .image(cx, u(def.y), "prop-bridge")
+      .setDisplaySize(u(def.w + 20), u(50))
+      .setVisible(false)
+      .setDepth(6);
   }
 
   private wireDebugOpeners(): void {
@@ -239,9 +332,37 @@ export class BachbrueckeScene extends Phaser.Scene {
     if (this.solved.has(slot.id)) return;
     const template = pickRandomPuzzle(mergedPuzzles(), slot.category);
     if (!template) return;
-    unlockSpeech();
     this.activeSlotId = slot.id;
-    this.openPuzzleNow(puzzleForSlot(slot, template));
+    const puzzle = puzzleForSlot(slot, template);
+    if (isAutoSolvePuzzles()) {
+      this.applyEffect(puzzle);
+      return;
+    }
+    unlockSpeech();
+    this.openPuzzleNow(puzzle);
+  }
+
+  private tryOpenStreetCrossing(): void {
+    if (this.streetCrossingDone || this.pendingStreetCrossing) return;
+    if (this.worldPaused || isOverlayOpen() || this.transforming || this.climbing) return;
+    const tx = u(STREET_CROSSING.triggerX);
+    const half = u(STREET_CROSSING.triggerW) / 2;
+    if (Math.abs(this.player.x - tx) > half) return;
+    if (Math.abs(this.player.y - WALK_Y) > u(80)) return;
+
+    const puzzle =
+      mergedPuzzles().find((p) => p.id === STREET_CROSSING.puzzleId) ??
+      mergedPuzzles().find((p) => p.type === "buchstabenstrasse");
+    if (!puzzle) return;
+
+    this.activeSlotId = null;
+    this.pendingStreetCrossing = true;
+    if (isAutoSolvePuzzles()) {
+      this.applyEffect(puzzle);
+      return;
+    }
+    unlockSpeech();
+    this.openPuzzleNow(puzzle);
   }
 
   private createAnims(): void {
@@ -264,9 +385,23 @@ export class BachbrueckeScene extends Phaser.Scene {
     g.fillRect(0, 0, W, H);
     g.fillStyle(0x6bb5ff, 1);
     g.fillRect(0, 0, W, u(170));
-    this.drawStream(g);
-    this.drawGrassBank(g, 0, u(760));
-    this.drawGrassBank(g, u(1040), W - u(1040));
+
+    for (const gap of WATER_GAPS) {
+      if (gap.kind === "stream") this.drawStream(g, gap.x0, gap.x1);
+      else if (gap.kind === "lake") this.drawLake(g, gap.x0, gap.x1);
+      else if (gap.kind === "street") this.drawStreet(g, gap.x0, gap.x1);
+    }
+
+    let cursor = 0;
+    const edges = WATER_GAPS.flatMap((g) => [g.x0, g.x1]).sort((a, b) => a - b);
+    const bankEnds = [...edges, WORLD.width];
+    for (const end of bankEnds) {
+      if (end > cursor) {
+        const inGap = WATER_GAPS.some((g) => cursor >= g.x0 && cursor < g.x1);
+        if (!inGap) this.drawGrassBank(g, u(cursor), u(end - cursor));
+      }
+      cursor = end;
+    }
   }
 
   private placeFarRidge(): void {
@@ -274,7 +409,8 @@ export class BachbrueckeScene extends Phaser.Scene {
       [u(520), u(720), u(160)],
       [u(1500), u(640), u(140)],
       [u(2500), u(700), u(150)],
-      [u(3300), u(620), u(130)],
+      [u(3600), u(680), u(145)],
+      [u(4600), u(640), u(130)],
     ];
     for (const [x, w, h] of ridges) {
       this.add
@@ -285,121 +421,211 @@ export class BachbrueckeScene extends Phaser.Scene {
     }
   }
 
-  private placeMeadowDecor(): void {
-    // On the black grass line (origin bottom @ GROUND). Avoid stream gap u(760)–u(1040).
-    const lineTufts: [number, number, number][] = [
-      [u(90), u(52), u(38)],
-      [u(210), u(46), u(34)],
-      [u(400), u(56), u(42)],
-      [u(580), u(50), u(36)],
-      [u(700), u(48), u(36)],
-      [u(1100), u(54), u(40)],
-      [u(1260), u(46), u(34)],
-      [u(1520), u(58), u(44)],
-      [u(1760), u(50), u(38)],
-      [u(2050), u(52), u(40)],
-      [u(2340), u(48), u(36)],
-      [u(2620), u(56), u(42)],
-      [u(2900), u(50), u(38)],
-      [u(3220), u(54), u(40)],
-      [u(3480), u(48), u(36)],
+  private placeSkyline(): void {
+    const scroll = 0.42;
+    const buildings: [number, number, number, number][] = [
+      [280, 160, 300, 0.88],
+      [720, 190, 340, 0.82],
+      [1280, 170, 310, 0.9],
+      [1900, 210, 380, 0.78],
+      [2600, 180, 330, 0.85],
+      [3300, 200, 360, 0.8],
+      [4000, 175, 320, 0.88],
+      [4700, 195, 350, 0.82],
     ];
-    for (const [x, w, h] of lineTufts) {
+    for (const [x0, w0, h0, alpha] of buildings) {
       this.add
-        .image(x, GROUND, "prop-grass-tuft")
+        .image(u(x0), GROUND - u(8), "prop-hochhaus")
         .setOrigin(0.5, 1)
-        .setDisplaySize(w, h)
+        .setDisplaySize(u(w0), u(h0))
+        .setScrollFactor(scroll, 1)
+        .setAlpha(alpha)
+        .setDepth(0.5);
+    }
+  }
+
+  private placeTreehouse(): void {
+    this.add
+      .image(u(TREEHOUSE.propX), u(TREEHOUSE.propY), "prop-treehouse")
+      .setOrigin(0.5, 0.55)
+      .setDisplaySize(u(TREEHOUSE.propW), u(TREEHOUSE.propH))
+      .setDepth(1);
+  }
+
+  private inGapUnscaled(xUnscaled: number, kinds?: Array<"stream" | "lake" | "street">): boolean {
+    return WATER_GAPS.some(
+      (g) => (!kinds || kinds.includes(g.kind)) && xUnscaled >= g.x0 && xUnscaled <= g.x1,
+    );
+  }
+
+  private placeMeadowDecor(): void {
+    const lineTufts: [number, number, number][] = [
+      [90, 52, 38],
+      [210, 46, 34],
+      [400, 56, 42],
+      [580, 50, 36],
+      [700, 48, 36],
+      [1100, 54, 40],
+      [1260, 46, 34],
+      [1520, 58, 44],
+      [1760, 50, 38],
+      [2050, 52, 40],
+      [2340, 48, 36],
+      [2950, 50, 38],
+      [3480, 48, 36],
+      [3800, 54, 40],
+      [4200, 50, 38],
+      [4600, 52, 40],
+      [4900, 48, 36],
+    ];
+    for (const [x0, w0, h0] of lineTufts) {
+      if (this.inGapUnscaled(x0)) continue;
+      this.add
+        .image(u(x0), PROP_FEET_Y, "prop-grass-tuft")
+        .setOrigin(0.5, 1)
+        .setDisplaySize(u(w0), u(h0))
         .setDepth(4);
     }
 
     const lineFlowers: [number, number, number][] = [
-      [u(150), u(42), u(42)],
-      [u(340), u(40), u(40)],
-      [u(520), u(44), u(44)],
-      [u(1180), u(42), u(42)],
-      [u(1420), u(46), u(46)],
-      [u(1920), u(40), u(40)],
-      [u(2200), u(44), u(44)],
-      [u(2760), u(42), u(42)],
-      [u(3080), u(46), u(46)],
-      [u(3380), u(40), u(40)],
+      [150, 42, 42],
+      [340, 40, 40],
+      [520, 44, 44],
+      [1180, 42, 42],
+      [1420, 46, 46],
+      [1920, 40, 40],
+      [2200, 44, 44],
+      [3020, 42, 42],
+      [3600, 46, 46],
+      [4100, 40, 40],
+      [4550, 44, 44],
     ];
-    for (const [x, w, h] of lineFlowers) {
+    for (const [x0, w0, h0] of lineFlowers) {
+      if (this.inGapUnscaled(x0)) continue;
       const bloom = this.add
-        .image(x, GROUND, "prop-flowers")
+        .image(u(x0), PROP_FEET_Y, "prop-flowers")
         .setOrigin(0.5, 1)
-        .setDisplaySize(w, h)
+        .setDisplaySize(u(w0), u(h0))
         .setDepth(5);
       this.tweens.add({
         targets: bloom,
         angle: { from: -3, to: 3 },
-        duration: 2200 + (x % 7) * 90,
+        duration: 2200 + (x0 % 7) * 90,
         yoyo: true,
         repeat: -1,
         ease: "Sine.easeInOut",
       });
     }
 
-    // Smaller props in the green bank below the black line.
     const belowTufts: [number, number, number, number][] = [
-      [u(160), u(36), u(26), u(36)],
-      [u(450), u(34), u(24), u(48)],
-      [u(640), u(38), u(28), u(40)],
-      [u(1200), u(36), u(26), u(52)],
-      [u(1600), u(34), u(24), u(44)],
-      [u(2100), u(38), u(28), u(56)],
-      [u(2500), u(36), u(26), u(38)],
-      [u(3000), u(34), u(24), u(50)],
-      [u(3400), u(36), u(26), u(42)],
+      [160, 36, 26, 36],
+      [450, 34, 24, 48],
+      [640, 38, 28, 40],
+      [1200, 36, 26, 52],
+      [1600, 34, 24, 44],
+      [2100, 38, 28, 56],
+      [3000, 34, 24, 50],
+      [3600, 36, 26, 42],
+      [4300, 34, 24, 48],
+      [4800, 36, 26, 40],
     ];
-    for (const [x, w, h, dy] of belowTufts) {
+    for (const [x0, w0, h0, dy0] of belowTufts) {
+      if (this.inGapUnscaled(x0)) continue;
       this.add
-        .image(x, GROUND + dy, "prop-grass-tuft")
+        .image(u(x0), GROUND + u(dy0), "prop-grass-tuft")
         .setOrigin(0.5, 1)
-        .setDisplaySize(w, h)
+        .setDisplaySize(u(w0), u(h0))
         .setAlpha(0.9)
         .setDepth(2);
     }
     const belowFlowers: [number, number, number, number][] = [
-      [u(280), u(32), u(32), u(58)],
-      [u(620), u(30), u(30), u(70)],
-      [u(1300), u(34), u(34), u(62)],
-      [u(1850), u(30), u(30), u(48)],
-      [u(2400), u(32), u(32), u(66)],
-      [u(3150), u(30), u(30), u(54)],
+      [280, 32, 32, 58],
+      [620, 30, 30, 70],
+      [1300, 34, 34, 62],
+      [1850, 30, 30, 48],
+      [3500, 32, 32, 66],
+      [4400, 30, 30, 54],
     ];
-    for (const [x, w, h, dy] of belowFlowers) {
+    for (const [x0, w0, h0, dy0] of belowFlowers) {
+      if (this.inGapUnscaled(x0)) continue;
       this.add
-        .image(x, GROUND + dy, "prop-flowers")
+        .image(u(x0), GROUND + u(dy0), "prop-flowers")
         .setOrigin(0.5, 1)
-        .setDisplaySize(w, h)
+        .setDisplaySize(u(w0), u(h0))
         .setAlpha(0.88)
         .setDepth(2);
     }
   }
 
-  private drawStream(g: Phaser.GameObjects.Graphics): void {
+  private drawStream(g: Phaser.GameObjects.Graphics, x0: number, x1: number): void {
+    const left = u(x0);
+    const width = u(x1 - x0);
+    const mid = left + width / 2;
     g.fillStyle(0x1e88c8, 1);
-    g.fillRect(u(760), GROUND - u(6), u(280), H - GROUND + u(6));
+    g.fillRect(left, GROUND - u(6), width, H - GROUND + u(6));
     g.fillStyle(0x42b6ef, 1);
-    g.fillEllipse(u(900), GROUND + u(40), u(300), u(90));
+    g.fillEllipse(mid, GROUND + u(40), width + u(20), u(90));
     g.fillStyle(0xffffff, 1);
-    g.fillRoundedRect(u(772), GROUND - u(4), u(256), u(8), u(4));
+    g.fillRoundedRect(left + u(12), GROUND - u(4), width - u(24), u(8), u(4));
     g.lineStyle(u(4), 0x1a1a1a, 1);
-    g.strokeRoundedRect(u(772), GROUND - u(4), u(256), u(8), u(4));
+    g.strokeRoundedRect(left + u(12), GROUND - u(4), width - u(24), u(8), u(4));
     g.fillStyle(0xffffff, 0.35);
-    g.fillEllipse(u(820), GROUND + u(36), u(70), u(14));
-    g.fillEllipse(u(950), GROUND + u(64), u(90), u(16));
+    g.fillEllipse(mid - u(80), GROUND + u(36), u(70), u(14));
+    g.fillEllipse(mid + u(50), GROUND + u(64), u(90), u(16));
     g.fillStyle(0x3dcc5a, 1);
-    g.fillEllipse(u(758), GROUND + u(8), u(58), u(42));
-    g.fillEllipse(u(1042), GROUND + u(8), u(58), u(42));
+    g.fillEllipse(left - u(2), GROUND + u(8), u(58), u(42));
+    g.fillEllipse(left + width + u(2), GROUND + u(8), u(58), u(42));
     g.lineStyle(u(4), 0x1a1a1a, 1);
-    g.strokeEllipse(u(758), GROUND + u(8), u(58), u(42));
-    g.strokeEllipse(u(1042), GROUND + u(8), u(58), u(42));
+    g.strokeEllipse(left - u(2), GROUND + u(8), u(58), u(42));
+    g.strokeEllipse(left + width + u(2), GROUND + u(8), u(58), u(42));
+  }
+
+  private drawLake(g: Phaser.GameObjects.Graphics, x0: number, x1: number): void {
+    const left = u(x0);
+    const width = u(x1 - x0);
+    const mid = left + width / 2;
+    g.fillStyle(0x1565a0, 1);
+    g.fillRect(left, GROUND - u(4), width, H - GROUND + u(4));
+    g.fillStyle(0x2e9fd6, 1);
+    g.fillEllipse(mid, GROUND + u(50), width + u(40), u(120));
+    g.fillStyle(0xffffff, 0.9);
+    g.fillRoundedRect(left + u(20), GROUND - u(2), width - u(40), u(10), u(5));
+    g.lineStyle(u(4), 0x1a1a1a, 1);
+    g.strokeRoundedRect(left + u(20), GROUND - u(2), width - u(40), u(10), u(5));
+    g.fillStyle(0xffffff, 0.3);
+    g.fillEllipse(mid - u(120), GROUND + u(44), u(110), u(18));
+    g.fillEllipse(mid + u(90), GROUND + u(78), u(130), u(22));
+    g.fillStyle(0x3dcc5a, 1);
+    g.fillEllipse(left - u(4), GROUND + u(10), u(70), u(48));
+    g.fillEllipse(left + width + u(4), GROUND + u(10), u(70), u(48));
+    g.lineStyle(u(4), 0x1a1a1a, 1);
+    g.strokeEllipse(left - u(4), GROUND + u(10), u(70), u(48));
+    g.strokeEllipse(left + width + u(4), GROUND + u(10), u(70), u(48));
+  }
+
+  private drawStreet(g: Phaser.GameObjects.Graphics, x0: number, x1: number): void {
+    const left = u(x0);
+    const width = u(x1 - x0);
+    const top = GROUND - u(2);
+    const roadH = H - GROUND + u(2);
+    g.fillStyle(0x4a4a4a, 1);
+    g.fillRect(left, top, width, roadH);
+    g.fillStyle(0x5c5c5c, 1);
+    g.fillRect(left, top, width, u(18));
+    g.fillStyle(0xf5f5f5, 1);
+    const dashW = u(36);
+    const gap = u(28);
+    const midY = GROUND + u(28);
+    for (let x = left + u(16); x < left + width - u(16); x += dashW + gap) {
+      g.fillRect(x, midY, dashW, u(6));
+    }
+    g.lineStyle(u(4), 0x1a1a1a, 1);
+    g.lineBetween(left, GROUND, left + width, GROUND);
   }
 
   private drawGrassBank(g: Phaser.GameObjects.Graphics, x: number, width: number): void {
-    // Drawn grass edge and physics walk line share y = GROUND.
+    if (width <= 0) return;
+    // Drawn grass edge at GROUND; physics walk / prop feet use WALK_Y below it.
     g.fillStyle(0x4a7a28, 1);
     g.fillRect(x, GROUND + u(14), width, H - GROUND - u(14));
 
@@ -439,6 +665,7 @@ export class BachbrueckeScene extends Phaser.Scene {
     g.lineStyle(u(5), 0x1a1a1a, 1);
     g.lineBetween(x, GROUND, x + width, GROUND);
   }
+
   private placeClouds(): void {
     for (const [x0, y0, r0] of [
       [180, 80, 36],
@@ -447,7 +674,10 @@ export class BachbrueckeScene extends Phaser.Scene {
       [1400, 55, 38],
       [2100, 75, 42],
       [2800, 62, 36],
-      [3300, 80, 40],
+      [3400, 80, 40],
+      [4000, 68, 38],
+      [4600, 74, 42],
+      [5000, 60, 36],
     ] as const) {
       const x = u(x0);
       const y = u(y0);
@@ -470,34 +700,37 @@ export class BachbrueckeScene extends Phaser.Scene {
   }
 
   private placeWater(): void {
-    for (const [x0, yOff, w0] of [
-      [800, 28, 52],
-      [880, 56, 58],
-      [840, 82, 44],
-    ] as const) {
-      const x = u(x0);
-      const ripple = this.add.rectangle(x, GROUND + u(yOff), u(w0), u(8), 0xffffff, 0.45).setDepth(2);
-      this.tweens.add({
-        targets: ripple,
-        x: x + u(28),
-        alpha: 0.12,
-        duration: 1600,
-        yoyo: true,
-        repeat: -1,
-        ease: "Sine.easeInOut",
-      });
+    for (const gap of WATER_GAPS) {
+      if (gap.kind === "street") continue;
+      const mid = (gap.x0 + gap.x1) / 2;
+      const span = gap.x1 - gap.x0;
+      const ripples: [number, number, number][] =
+        gap.kind === "lake"
+          ? [
+              [mid - span * 0.28, 28, 64],
+              [mid, 56, 72],
+              [mid + span * 0.22, 82, 58],
+              [mid - span * 0.1, 100, 50],
+            ]
+          : [
+              [mid - 40, 28, 52],
+              [mid + 40, 56, 58],
+              [mid, 82, 44],
+            ];
+      for (const [x0, yOff, w0] of ripples) {
+        const x = u(x0);
+        const ripple = this.add.rectangle(x, GROUND + u(yOff), u(w0), u(8), 0xffffff, 0.45).setDepth(2);
+        this.tweens.add({
+          targets: ripple,
+          x: x + u(28),
+          alpha: 0.12,
+          duration: 1600,
+          yoyo: true,
+          repeat: -1,
+          ease: "Sine.easeInOut",
+        });
+      }
     }
-  }
-
-  private bob(target: Phaser.GameObjects.Image, amp: number, duration: number): void {
-    this.tweens.add({
-      targets: target,
-      y: target.y - amp,
-      duration,
-      yoyo: true,
-      repeat: -1,
-      ease: "Sine.easeInOut",
-    });
   }
 
   private placeTown(): void {
@@ -507,16 +740,19 @@ export class BachbrueckeScene extends Phaser.Scene {
       [1180, "prop-tree", 158, 185],
       [1320, "prop-house", 130, 110],
       [1880, "prop-tree", 132, 158],
-      [2400, "prop-house", 150, 125],
-      [2550, "prop-tree", 150, 178],
-      [3000, "prop-house", 140, 118],
-      [3180, "prop-tree", 142, 168],
+      [2200, "prop-house", 150, 125],
+      [2980, "prop-tree", 142, 168],
+      [3600, "prop-house", 140, 118],
+      [3900, "prop-tree", 150, 178],
+      [4300, "prop-house", 145, 122],
+      [4700, "prop-tree", 148, 172],
     ] as const;
     for (const [i, [x0, key, w0, h0]] of deco.entries()) {
+      if (this.inGapUnscaled(x0)) continue;
       const w = u(w0);
       const h = u(h0);
       const img = this.add
-        .image(u(x0), GROUND, key)
+        .image(u(x0), PROP_FEET_Y, key)
         .setOrigin(0.5, 1)
         .setDisplaySize(w, h)
         .setDepth(3);
@@ -600,21 +836,38 @@ export class BachbrueckeScene extends Phaser.Scene {
     return r;
   }
 
-  private showPart(index: number, kind: SpawnKind): void {
-    const r = this.hiddenParts[index];
-    r.setVisible(false);
-    const body = r.body as Phaser.Physics.Arcade.StaticBody;
-    // Rope is visual-only until swing/climb slices attach interaction bodies.
-    body.enable = kind !== "rope";
-    // refreshBody/updateFromGameObject re-inserts into the static R-tree correctly;
-    // never mutate position/width by hand (that desyncs the tree AABB).
-    if (body.enable) body.updateFromGameObject();
-    const view = this.propViews[index];
+  private spawnKindFor(def: SpawnPartDef): SpawnKind {
+    if (def.kind === "bridge") return "bridge";
+    if (def.kind === "rope") return "rope";
+    if (def.kind === "ladder") return "ladder";
+    return "platform";
+  }
+
+  private revealPart(id: string): void {
+    const part = this.partsById.get(id);
+    if (!part) return;
+    const kind = this.spawnKindFor(part.def);
+
+    if (part.solid) {
+      part.solid.setVisible(false);
+      const body = part.solid.body as Phaser.Physics.Arcade.StaticBody;
+      body.enable = true;
+      body.updateFromGameObject();
+    }
+    if (part.climb) {
+      part.climb.setVisible(false);
+      const body = part.climb.body as Phaser.Physics.Arcade.StaticBody;
+      // Rope/ladder: climb sensors only (never solid floors).
+      body.enable = true;
+      body.updateFromGameObject();
+    }
+
+    const view = part.view;
     if (!view) return;
     const destY = view.y;
     const motion = spawnMotion(kind);
     view.setVisible(true).setAlpha(0);
-    view.y = destY + Math.round(motion.fromY * S);
+    view.y = destY + Math.round(motion.fromY * LAYOUT_SCALE);
     this.tweens.add({
       targets: view,
       y: destY,
@@ -624,22 +877,64 @@ export class BachbrueckeScene extends Phaser.Scene {
     });
   }
 
+  private revealEffect(effect: WorldEffect): void {
+    for (const def of spawnPartsForEffect(effect)) {
+      this.revealPart(def.id);
+    }
+  }
+
+  private enterClimb(anchorX: number): void {
+    this.climbing = true;
+    this.climbAnchorX = anchorX;
+    const body = this.player.body as Phaser.Physics.Arcade.Body;
+    body.allowGravity = false;
+    this.player.setVelocity(0, 0);
+    this.player.x = anchorX;
+  }
+
+  private exitClimb(hop: boolean): void {
+    if (!this.climbing) return;
+    this.climbing = false;
+    const body = this.player.body as Phaser.Physics.Arcade.Body;
+    body.allowGravity = true;
+    if (hop) this.player.setVelocityY(CLIMB_DETACH_VY);
+  }
+
+  private climbSensorActive(part: PartRuntime): boolean {
+    if (!part.climb) return false;
+    return (part.climb.body as Phaser.Physics.Arcade.StaticBody).enable;
+  }
+
+  private tryGrabClimb(): void {
+    if (this.climbing || !canClimb(this.shape, this.worldPaused) || this.transforming) return;
+    for (const part of this.partsById.values()) {
+      if (!part.climb || !this.climbSensorActive(part)) continue;
+      const sensor = part.climb;
+      const body = sensor.body as Phaser.Physics.Arcade.StaticBody;
+      if (Math.abs(this.player.x - sensor.x) > CLIMB_GRAB_DX) continue;
+      const feet = this.player.y;
+      const head = this.player.y - this.player.displayHeight;
+      if (feet < body.top - u(24) || head > body.bottom + u(24)) continue;
+      this.enterClimb(sensor.x);
+      return;
+    }
+  }
+
   private placeStations(): void {
     this.stations = [];
     this.stationViews = [];
-    for (const slot of enabledStationSlots()) {
+    for (const slot of resolvedStationSlots()) {
       const x = u(slot.x);
-      const y = slot.elevated ? u(slot.y) : GROUND - u(50);
+      const y = slot.elevated ? u(slot.y) : PROP_FEET_Y - u(50);
       const station: Station = { ...slot, x, y };
       this.stations.push(station);
-      const feetY = y + u(50); // trigger sits above feet; wooden signs stand on the surface
+      const feetY = y + u(50); // trigger sits above feet; wooden signs stand on the walk surface
       const sign = this.add
         .image(x, feetY, "station-sign")
         .setOrigin(0.5, 1)
         .setDisplaySize(u(78), u(110))
         .setDepth(2);
       if (this.solved.has(slot.id)) sign.setAlpha(0.35);
-      else this.bob(sign, u(3), 700 + this.stations.length * 45);
       this.stationViews.push(sign);
     }
   }
@@ -690,10 +985,12 @@ export class BachbrueckeScene extends Phaser.Scene {
       left: kb.addKey(Phaser.Input.Keyboard.KeyCodes.LEFT, false),
       right: kb.addKey(Phaser.Input.Keyboard.KeyCodes.RIGHT, false),
       up: kb.addKey(Phaser.Input.Keyboard.KeyCodes.UP, false),
+      down: kb.addKey(Phaser.Input.Keyboard.KeyCodes.DOWN, false),
       space: kb.addKey(Phaser.Input.Keyboard.KeyCodes.SPACE, false),
       a: kb.addKey(Phaser.Input.Keyboard.KeyCodes.A, false),
       d: kb.addKey(Phaser.Input.Keyboard.KeyCodes.D, false),
       w: kb.addKey(Phaser.Input.Keyboard.KeyCodes.W, false),
+      s: kb.addKey(Phaser.Input.Keyboard.KeyCodes.S, false),
     };
     window.addEventListener("keydown", (e) => {
       if (isOverlayOpen() || isTypingField()) return;
@@ -702,14 +999,22 @@ export class BachbrueckeScene extends Phaser.Scene {
     });
   }
 
-  private keyboardMove(): { left: boolean; right: boolean; jump: boolean } {
+  private keyboardMove(): {
+    left: boolean;
+    right: boolean;
+    jump: boolean;
+    up: boolean;
+    down: boolean;
+  } {
     if (!this.keys || isOverlayOpen() || isTypingField()) {
-      return { left: false, right: false, jump: false };
+      return { left: false, right: false, jump: false, up: false, down: false };
     }
     return {
       left: this.keys.left.isDown || this.keys.a.isDown,
       right: this.keys.right.isDown || this.keys.d.isDown,
-      jump: this.keys.up.isDown || this.keys.space.isDown || this.keys.w.isDown,
+      jump: this.keys.space.isDown,
+      up: this.keys.up.isDown || this.keys.w.isDown,
+      down: this.keys.down.isDown || this.keys.s.isDown,
     };
   }
 
@@ -717,6 +1022,7 @@ export class BachbrueckeScene extends Phaser.Scene {
     const body = this.player.body as Phaser.Physics.Arcade.Body;
     this.grounded = body.blocked.down || body.touching.down;
     if (this.player.y > H + u(40)) {
+      this.exitClimb(false);
       this.player.setVelocity(0, 0);
       this.player.setPosition(this.checkpoint.x, this.checkpoint.y);
       if (this.jumpAsMech) {
@@ -727,32 +1033,62 @@ export class BachbrueckeScene extends Phaser.Scene {
 
     if (this.worldPaused || isOverlayOpen()) {
       this.player.setVelocityX(0);
+      if (this.climbing) this.player.setVelocityY(0);
       this.applyPose(time, true);
       return;
     }
 
-    const move = combineMove(this.cursors, this.keyboardMove());
-    const speed = moveSpeed(this.shape);
-    if (move.left && !move.right) {
-      this.player.setVelocityX(-speed);
-      this.player.setFlipX(true);
-    } else if (move.right && !move.left) {
-      this.player.setVelocityX(speed);
-      this.player.setFlipX(false);
-    } else this.player.setVelocityX(0);
+    if (this.climbing && !canClimb(this.shape, this.worldPaused)) {
+      this.exitClimb(false);
+    }
 
-    if (move.jump && canJump(this.grounded, this.worldPaused) && !this.transforming) {
-      // Auto morphs into walking mech for the jump (higher leap), then back on land.
-      const jumpShape: ShapeId = this.shape === "auto" ? "mech" : this.shape;
-      this.player.setVelocityY(jumpVelocity(jumpShape));
-      this.playJump();
+    const move = combineMove(this.cursors, this.keyboardMove());
+
+    if (this.climbing) {
+      this.player.x = this.climbAnchorX;
+      this.player.setVelocityX(0);
+      if (move.jump) {
+        this.exitClimb(true);
+        this.playJump();
+      } else {
+        this.player.setVelocityY(
+          climbVelocityY({ up: Boolean(move.up), down: Boolean(move.down), jump: false }),
+        );
+        // Soft detach if player pushes away horizontally.
+        if ((move.left || move.right) && !move.up && !move.down) {
+          this.exitClimb(false);
+        }
+      }
+    } else {
+      const speed = moveSpeed(this.shape);
+      if (move.left && !move.right) {
+        this.player.setVelocityX(-speed);
+        this.player.setFlipX(true);
+      } else if (move.right && !move.left) {
+        this.player.setVelocityX(speed);
+        this.player.setFlipX(false);
+      } else this.player.setVelocityX(0);
+
+      const wantJump = move.jump || Boolean(move.up);
+      if (wantJump && canJump(this.grounded, this.worldPaused) && !this.transforming) {
+        // Auto morphs into walking mech for the jump (higher leap), then back on land.
+        const jumpShape: ShapeId = this.shape === "auto" ? "mech" : this.shape;
+        this.player.setVelocityY(jumpVelocity(jumpShape));
+        this.playJump();
+      } else {
+        this.tryGrabClimb();
+      }
     }
 
     if (!this.wasGrounded && this.grounded) this.playLand();
     this.wasGrounded = this.grounded;
     this.applyPose(time, false);
 
-    if (this.player.x > u(500)) this.checkpoint = { x: u(520), y: RESPAWN.y };
+    if (this.player.x > u(CHECKPOINT_AFTER_X)) {
+      this.checkpoint = { x: u(CHECKPOINT_AFTER_X + 20), y: RESPAWN.y };
+    }
+
+    this.tryOpenStreetCrossing();
 
     for (const s of this.stations) {
       if (this.solved.has(s.id) || this.worldPaused) continue;
@@ -762,7 +1098,7 @@ export class BachbrueckeScene extends Phaser.Scene {
       }
     }
 
-    if (this.player.x > u(3400) && !this.goalShown) {
+    if (this.player.x > u(GOAL_X) && !this.goalShown) {
       this.goalShown = true;
       document.getElementById("goal-banner")?.classList.remove("hidden");
     }
@@ -771,7 +1107,7 @@ export class BachbrueckeScene extends Phaser.Scene {
   private applyPose(time: number, paused: boolean): void {
     if (this.transforming) return;
     const body = this.player.body as Phaser.Physics.Arcade.Body;
-    const pose = playerPose(this.grounded, body.velocity.x, paused);
+    const pose = playerPose(this.grounded, body.velocity.x, paused, this.climbing);
     const look = this.visualShape();
     this.syncWalkAnim(pose, look);
     let scale = poseScale(pose, time, look, body.velocity.y);
@@ -891,6 +1227,12 @@ export class BachbrueckeScene extends Phaser.Scene {
       });
       return;
     }
+    if (puzzle.type === "kettenhochhaus") {
+      openKettenhochhaus(puzzle, {
+        onSolved: (p) => this.applyEffect(p),
+      });
+      return;
+    }
     openPuzzle(puzzle, {
       onSolved: (p) => this.applyEffect(p),
     });
@@ -941,18 +1283,22 @@ export class BachbrueckeScene extends Phaser.Scene {
     else this.solved.add(puzzle.id);
     const isTransform = puzzle.effect.startsWith("transform_");
     this.playSolveBurst(!isTransform);
+
+    if (this.pendingStreetCrossing) {
+      this.pendingStreetCrossing = false;
+      this.streetCrossingDone = true;
+      this.exitClimb(false);
+      this.player.setPosition(u(STREET_CROSSING.exitX), STREET_CROSSING.exitY);
+      this.player.setVelocity(0, 0);
+    }
+
     switch (puzzle.effect) {
       case "spawn_bridge":
-        this.showPart(0, "bridge");
-        break;
       case "spawn_rope":
-        this.showPart(1, "rope");
-        break;
       case "spawn_ladder":
-        this.showPart(2, "ladder");
-        break;
       case "spawn_platform":
-        this.showPart(3, "platform");
+      case "spawn_lake_bridge":
+        this.revealEffect(puzzle.effect);
         break;
       case "transform_auto":
       case "transform_mech":
@@ -1045,6 +1391,7 @@ export class BachbrueckeScene extends Phaser.Scene {
 
   private playTransform(nextCharacter: CharacterId | undefined, nextShape: ShapeId): void {
     this.jumpAsMech = false;
+    if (this.climbing) this.exitClimb(false);
     this.transforming = true;
     this.tweens.killTweensOf(this.player);
     this.spawnTransformSparks(12);

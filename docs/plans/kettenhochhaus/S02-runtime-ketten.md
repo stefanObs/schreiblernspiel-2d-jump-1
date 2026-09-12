@@ -29,3 +29,15 @@ Spieler öffnet eine Kettenhochhaus-Station, pausiert, sieht 4 Ketten nacheinand
 
 - Automatisiert: Sim Treffer/Fehlschuss/Leben/Restart/Win für 4 Ketten
 - Overlay öffnet/schließt ohne Crash (soweit testbar)
+
+## Repro & RCA (Softlock Station)
+
+**Repro:** Station/`bach-kettenhochhaus` → `openPuzzleNow` → Welt pausiert → generisches Puzzle-Overlay statt 3D-Minispiel → `matchPuzzle` scheitert → Pause bleibt.
+
+**Ursache:** In `BachbrueckeScene.openPuzzleNow` fehlten Import und Branch für `openKettenhochhaus`; Typ fiel auf `openPuzzle` durch.
+
+**Nicht-Ursache:** Sim, Overlay-HTML/CSS und `openKettenhochhaus` selbst (in Isolation ok).
+
+**Fix-Richtung:** Branch wie Ballkanone + Regressionstest auf den Dispatch.
+
+**Risiken:** Gering (gleiches Minispiel-Muster).

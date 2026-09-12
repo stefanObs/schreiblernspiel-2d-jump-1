@@ -13,7 +13,7 @@ Feature-Schritte, keine Prozess-Schritte. Fast-Path: nein (neues 3D-Minispiel + 
 | ID | Datei | Feature | Hängt ab von | Status |
 |----|-------|---------|----------------|--------|
 | S01 | `S01-vertrag-pipeline.md` | Ownership + Tripo-Pipeline für `kettenhochhaus` | — | erledigt |
-| S02 | `S02-runtime-ketten.md` | Spielregeln, 3D-Runtime, Overlay/Pause, Station | S01 | offen |
+| S02 | `S02-runtime-ketten.md` | Spielregeln, 3D-Runtime, Overlay/Pause, Station | S01 | erledigt |
 | S03 | `S03-tripo-assets.md` | Tripo-GLBs (Kette, Hochhaus, Props) verdrahten | S02 | offen |
 | S04 | `S04-bruch-loesch-anim.md` | Kettenbruch- + Lauf-/Lösch-Animation | S03 | offen |
 

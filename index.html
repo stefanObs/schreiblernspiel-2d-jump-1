@@ -82,6 +82,30 @@
         <button type="button" id="buchstabenstrasse-continue">Weiter</button>
       </div>
     </div>
+    <div id="kettenhochhaus-overlay" class="hidden">
+      <div id="kettenhochhaus-chrome">
+        <button type="button" id="kettenhochhaus-hear">Wort hören</button>
+        <p id="kettenhochhaus-prompt"></p>
+        <p id="kettenhochhaus-progress" aria-live="polite"></p>
+        <p id="kettenhochhaus-letter" aria-live="polite"></p>
+        <p id="kettenhochhaus-lives" aria-live="polite">Leben: 3</p>
+        <p id="kettenhochhaus-feedback" aria-live="polite"></p>
+      </div>
+      <canvas id="kettenhochhaus-canvas"></canvas>
+      <div id="kettenhochhaus-footer">
+        <div id="kettenhochhaus-zones" role="group" aria-label="Position">
+          <button type="button" data-zone="anfang">Anfang</button>
+          <button type="button" data-zone="mitte">Mitte</button>
+          <button type="button" data-zone="ende">Ende</button>
+        </div>
+        <p id="kettenhochhaus-word" aria-live="polite"></p>
+      </div>
+      <div id="kettenhochhaus-success" class="hidden" role="dialog" aria-label="Erfolg">
+        <p class="success-title">Super!</p>
+        <div id="kettenhochhaus-stars" class="success-stars"></div>
+        <button type="button" id="kettenhochhaus-continue">Weiter</button>
+      </div>
+    </div>
     <div id="puzzle-overlay" class="hidden">
       <div id="puzzle-panel">
         <button type="button" id="puzzle-hear">Wort hören</button>

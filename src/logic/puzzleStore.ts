@@ -1,6 +1,42 @@
 import type { Puzzle, TransformOption } from "./puzzleTypes";
+import { TRACE_LABELS, TRACE_TEMPLATES } from "./traceTemplates";
 
 const KEY = "schreiblern-puzzles-v1";
+
+function builtinTracePuzzles(): Puzzle[] {
+  return TRACE_TEMPLATES.map((kind) => {
+    const label = TRACE_LABELS[kind];
+    return {
+      id: `bach-trace-${kind}`,
+      type: "trace" as const,
+      hintMode: "motif" as const,
+      solution: "",
+      voiceText: "",
+      effect: "none" as const,
+      prompt: `Zeichne ${articleFor(label)} ${label} nach.`,
+      traceTemplate: kind,
+      anlautVisible: false,
+      levelId: "bachbruecke",
+    };
+  });
+}
+
+/** Simple German article for drawing prompts (die/der/das). */
+function articleFor(label: string): string {
+  const die = new Set([
+    "Brücke",
+    "Leiter",
+    "Sonne",
+    "Blume",
+    "Wolke",
+    "Rakete",
+    "Katze",
+  ]);
+  const das = new Set(["Haus", "Auto", "Segelschiff", "Herz", "Seil"]);
+  if (die.has(label)) return "die";
+  if (das.has(label)) return "das";
+  return "den";
+}
 
 const FREE_TRANSFORM_OPTIONS: TransformOption[] = [
   { answer: "bolt", effect: "transform_bolt", motifId: "bolt" },
@@ -195,18 +231,7 @@ export function builtinPuzzles(): Puzzle[] {
       anlautVisible: false,
       levelId: "bachbruecke",
     },
-    {
-      id: "bach-trace-bridge",
-      type: "trace",
-      hintMode: "motif",
-      solution: "",
-      voiceText: "",
-      effect: "spawn_bridge",
-      prompt: "Zeichne die Brücke nach.",
-      traceTemplate: "bridge",
-      anlautVisible: false,
-      levelId: "bachbruecke",
-    },
+    ...builtinTracePuzzles(),
     {
       id: "bach-ballkanone-ball",
       type: "ballkanone",
@@ -215,9 +240,8 @@ export function builtinPuzzles(): Puzzle[] {
       voiceText: "Ball",
       syllables: ["Ball"],
       effect: "spawn_platform",
-      prompt: "Schieße die Buchstaben für BALL ab.",
+      prompt: "Schieße die Buchstaben in der richtigen Reihenfolge ab.",
       ballkanoneVariant: "static",
-      ballkanoneDistractors: ["k", "n", "m", "t"],
       anlautVisible: false,
       levelId: "bachbruecke",
     },
@@ -229,9 +253,8 @@ export function builtinPuzzles(): Puzzle[] {
       voiceText: "Kanone",
       syllables: ["Ka", "no", "ne"],
       effect: "spawn_ladder",
-      prompt: "Schieße die Buchstaben für KANONE ab.",
+      prompt: "Schieße die Buchstaben in der richtigen Reihenfolge ab.",
       ballkanoneVariant: "static",
-      ballkanoneDistractors: ["b", "r", "m", "s", "t"],
       anlautVisible: false,
       levelId: "bachbruecke",
     },
@@ -245,6 +268,18 @@ export function builtinPuzzles(): Puzzle[] {
       effect: "spawn_platform",
       prompt: "Sammle die Buchstaben für Ball.",
       buchstabenstrasseDistractors: ["k", "n", "m", "t"],
+      anlautVisible: false,
+      levelId: "bachbruecke",
+    },
+    {
+      id: "bach-kettenhochhaus",
+      type: "kettenhochhaus",
+      hintMode: "hear",
+      solution: "haus",
+      voiceText: "Haus",
+      syllables: ["Haus"],
+      effect: "spawn_platform",
+      prompt: "Wo steckt der Buchstabe? Schlage die vier Ketten durch.",
       anlautVisible: false,
       levelId: "bachbruecke",
     },

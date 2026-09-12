@@ -38,7 +38,7 @@ import {
 import { realizeMathPuzzle } from "./logic/mathPuzzle";
 import { isRepeatPuzzle, realizeRepeatPuzzle, repeatHearLabel } from "./logic/repeatPuzzle";
 import { starFillLevels, starsFromWrongAttempts } from "./logic/starRating";
-import { TRACE_PASS, templatePath, traceScore } from "./logic/traceScore";
+import { templatePolylines, traceComplete, traceLineDone } from "./logic/traceScore";
 import type { Point, Puzzle } from "./logic/puzzleTypes";
 import { speakGerman, type SpeakFn } from "./logic/speech";
 import {
@@ -78,7 +78,10 @@ export function isOverlayOpen(): boolean {
   const streetOpen = !document
     .getElementById("buchstabenstrasse-overlay")
     ?.classList.contains("hidden");
-  return Boolean(puzzleOpen || ballOpen || streetOpen);
+  const kettenOpen = !document
+    .getElementById("kettenhochhaus-overlay")
+    ?.classList.contains("hidden");
+  return Boolean(puzzleOpen || ballOpen || streetOpen || kettenOpen);
 }
 
 export function openPuzzle(puzzle: Puzzle, handlers: OverlayHandlers): void {
@@ -943,52 +946,108 @@ function tileButton(tile: AnlautTile, mode: LetterMode): HTMLButtonElement {
 
 function setupTrace(canvas: HTMLCanvasElement, puzzle: Puzzle, finishOk: () => void): void {
   const kind = puzzle.traceTemplate ?? "bridge";
-  const tmpl = templatePath(kind);
+  const guides = templatePolylines(kind);
   const ctx = canvas.getContext("2d");
   if (!ctx) return;
+  const strokes: Point[][] = [];
+  let current: Point[] = [];
   stroke = [];
+  const allStrokePoints = (): Point[] => strokes.flat().concat(current);
+
   const redraw = () => {
+    const pts = allStrokePoints();
+    const done = traceLineDone(pts, guides);
     ctx.clearRect(0, 0, canvas.width, canvas.height);
+    ctx.lineCap = "round";
+    ctx.lineJoin = "round";
     ctx.setLineDash([8, 8]);
-    ctx.strokeStyle = "#90CAF9";
-    ctx.lineWidth = 6;
-    ctx.beginPath();
-    tmpl.forEach((p, i) => (i ? ctx.lineTo(p.x, p.y) : ctx.moveTo(p.x, p.y)));
-    ctx.stroke();
+    ctx.lineWidth = 5;
+    for (let i = 0; i < guides.length; i++) {
+      const poly = guides[i]!;
+      if (poly.length === 0) continue;
+      ctx.strokeStyle = done[i] ? "#81C784" : "#90CAF9";
+      ctx.beginPath();
+      poly.forEach((p, j) => (j ? ctx.lineTo(p.x, p.y) : ctx.moveTo(p.x, p.y)));
+      ctx.stroke();
+    }
     ctx.setLineDash([]);
     ctx.strokeStyle = "#1565C0";
-    ctx.beginPath();
-    stroke.forEach((p, i) => (i ? ctx.lineTo(p.x, p.y) : ctx.moveTo(p.x, p.y)));
-    ctx.stroke();
+    ctx.lineWidth = 6;
+    for (const s of strokes) {
+      if (s.length === 0) continue;
+      ctx.beginPath();
+      s.forEach((p, i) => (i ? ctx.lineTo(p.x, p.y) : ctx.moveTo(p.x, p.y)));
+      ctx.stroke();
+    }
+    if (current.length > 0) {
+      ctx.beginPath();
+      current.forEach((p, i) => (i ? ctx.lineTo(p.x, p.y) : ctx.moveTo(p.x, p.y)));
+      ctx.stroke();
+    }
   };
   redraw();
   const pt = (e: PointerEvent): Point => {
     const r = canvas.getBoundingClientRect();
-    return { x: e.clientX - r.left, y: e.clientY - r.top };
+    const sx = canvas.width / Math.max(1, r.width);
+    const sy = canvas.height / Math.max(1, r.height);
+    return { x: (e.clientX - r.left) * sx, y: (e.clientY - r.top) * sy };
   };
-  const tryPass = () => {
-    if (traceScore(stroke, tmpl) >= TRACE_PASS) {
-      finishOk();
+  const showProgressHint = () => {
+    stroke = allStrokePoints();
+    const err = document.getElementById("puzzle-error");
+    if (!err) return;
+    const done = traceLineDone(stroke, guides);
+    const missing = done.filter((d) => !d).length;
+    if (stroke.length < 4) {
+      err.textContent = "Zeichne die gestrichelten Linien nach.";
+    } else if (missing > 0) {
+      err.textContent =
+        missing === 1
+          ? "Noch eine Linie fehlt — du darfst etwas daneben zeichnen."
+          : `Noch ${missing} Linien fehlen — du darfst etwas daneben zeichnen.`;
     } else {
-      wrongAttempts += 1;
-      const err = document.getElementById("puzzle-error");
-      if (err) err.textContent = "Etwas genauer nachzeichnen.";
+      err.textContent = "Etwas genauer nachzeichnen — du darfst mehrere Striche machen.";
     }
+  };
+  /** Auto-check after a stroke: success finishes; incomplete strokes do not cost stars. */
+  const checkAfterStroke = () => {
+    stroke = allStrokePoints();
+    if (traceComplete(stroke, kind)) {
+      finishOk();
+      return;
+    }
+    showProgressHint();
+    redraw();
+  };
+  /** Explicit OK: incomplete drawings count as a wrong try for stars. */
+  const tryPass = () => {
+    stroke = allStrokePoints();
+    if (traceComplete(stroke, kind)) {
+      finishOk();
+      return;
+    }
+    wrongAttempts += 1;
+    showProgressHint();
+    redraw();
   };
   canvas.onpointerdown = (e) => {
     drawing = true;
     canvas.setPointerCapture(e.pointerId);
-    stroke = [pt(e)];
+    current = [pt(e)];
     redraw();
   };
   canvas.onpointermove = (e) => {
     if (!drawing) return;
-    stroke.push(pt(e));
+    current.push(pt(e));
     redraw();
   };
   canvas.onpointerup = () => {
     drawing = false;
-    tryPass();
+    if (current.length > 1) strokes.push(current);
+    current = [];
+    stroke = allStrokePoints();
+    redraw();
+    checkAfterStroke();
   };
   document.getElementById("puzzle-ok")!.onclick = () => tryPass();
 }

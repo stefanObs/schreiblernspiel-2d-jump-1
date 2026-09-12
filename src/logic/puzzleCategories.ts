@@ -1,6 +1,6 @@
 import type { Puzzle, PuzzleType, WorldEffect } from "./puzzleTypes";
 
-/** Categories that can be toggled in Settings (one board each). */
+/** Categories that can be toggled in Settings. Boards keep their world positions. */
 export const PUZZLE_CATEGORIES: PuzzleType[] = [
   "word",
   "math",
@@ -10,7 +10,13 @@ export const PUZZLE_CATEGORIES: PuzzleType[] = [
   "letterPick",
   "ballkanone",
   "buchstabenstrasse",
+  "kettenhochhaus",
 ];
+
+/** Categories that use Holztafel boards (not world gates like buchstabenstrasse). */
+export const BOARD_CATEGORIES: PuzzleType[] = PUZZLE_CATEGORIES.filter(
+  (c) => c !== "buchstabenstrasse",
+);
 
 export const PUZZLE_CATEGORY_LABELS: Record<PuzzleType, string> = {
   word: "Wörter",
@@ -21,6 +27,7 @@ export const PUZZLE_CATEGORY_LABELS: Record<PuzzleType, string> = {
   letterPick: "Buchstaben-Bildwahl",
   ballkanone: "Ballkanone",
   buchstabenstrasse: "Buchstabenstraße",
+  kettenhochhaus: "Kettenhochhaus",
 };
 
 export const PUZZLE_CATEGORY_STORAGE_KEY = "schreiblernspiel.enabledPuzzleCategories";
@@ -41,24 +48,32 @@ export type StationSlotDef = {
 };
 
 /**
- * One board per category. Positions roughly follow the old 1:1 layout
- * (stream → meadow → elevated math → late transforms → goal).
+ * Boards on Bachbrücke (buchstabenstrasse is the world street gate, not a board).
+ * Progression: stream → rope/treehouse → ladder heights → lake → far side.
+ * Disabled categories are remapped onto other enabled types; slots stay.
  */
 export const STATION_SLOTS: StationSlotDef[] = [
   { id: "slot-word", category: "word", x: 620, y: 570, effect: "spawn_bridge" },
-  { id: "slot-ballkanone", category: "ballkanone", x: 1480, y: 570, effect: "spawn_rope" },
+  { id: "slot-letter-pos", category: "letterPos", x: 1480, y: 570, effect: "spawn_rope" },
   {
-    id: "slot-buchstabenstrasse",
-    category: "buchstabenstrasse",
-    x: 1680,
+    id: "slot-ballkanone",
+    category: "ballkanone",
+    x: 1780,
+    y: 280,
+    effect: "none",
+    elevated: true,
+  },
+  { id: "slot-math", category: "math", x: 2100, y: 260, effect: "spawn_ladder", elevated: true },
+  { id: "slot-letter-pick", category: "letterPick", x: 2280, y: 570, effect: "spawn_lake_bridge" },
+  {
+    id: "slot-kettenhochhaus",
+    category: "kettenhochhaus",
+    x: 3600,
     y: 570,
     effect: "spawn_platform",
   },
-  { id: "slot-math", category: "math", x: 1780, y: 320, effect: "spawn_ladder", elevated: true },
-  { id: "slot-letter-pos", category: "letterPos", x: 2020, y: 570, effect: "spawn_platform" },
-  { id: "slot-letter-pick", category: "letterPick", x: 2180, y: 570, effect: "spawn_platform" },
-  { id: "slot-transform", category: "transform", x: 2740, y: 570, effect: "none" },
-  { id: "slot-trace", category: "trace", x: 3160, y: 570, effect: "none" },
+  { id: "slot-transform", category: "transform", x: 3800, y: 570, effect: "none" },
+  { id: "slot-trace", category: "trace", x: 4500, y: 570, effect: "none" },
 ];
 
 export type EnabledCategories = Record<PuzzleType, boolean>;
@@ -125,11 +140,24 @@ export function isCategoryEnabled(
   return loadEnabledCategories(storage)[category];
 }
 
-export function enabledStationSlots(
+/**
+ * Every world board stays. If a slot’s home category is off, it gets another
+ * enabled type so the position still offers a puzzle.
+ */
+export function resolvedStationSlots(
   storage: Storage | null = defaultStorage(),
 ): StationSlotDef[] {
   const enabled = loadEnabledCategories(storage);
-  return STATION_SLOTS.filter((s) => enabled[s.category]);
+  const enabledList = PUZZLE_CATEGORIES.filter((c) => enabled[c]);
+  if (enabledList.length === 0) return STATION_SLOTS.map((slot) => ({ ...slot }));
+
+  let fill = 0;
+  return STATION_SLOTS.map((slot) => {
+    if (enabled[slot.category]) return slot;
+    const category = enabledList[fill % enabledList.length]!;
+    fill += 1;
+    return { ...slot, category };
+  });
 }
 
 export function puzzlesInCategory(
@@ -151,9 +179,12 @@ export function pickRandomPuzzle(
   return pool[Math.min(idx, pool.length - 1)] ?? null;
 }
 
-/** Attach the slot’s progression effect (transform keeps the template effect). */
+/**
+ * Progression slots keep their world effect (bridge, rope, ladder, …).
+ * Transform puzzles on a `none` slot keep the template’s own effect.
+ */
 export function puzzleForSlot(slot: StationSlotDef, template: Puzzle): Puzzle {
-  if (slot.category === "transform") return { ...template };
+  if (template.type === "transform" && slot.effect === "none") return { ...template };
   return { ...template, effect: slot.effect };
 }
 

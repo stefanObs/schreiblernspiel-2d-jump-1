@@ -67,12 +67,26 @@ html, body { margin: 0; height: 100%; background: #4DA3FF; font-family: sans-ser
 }
 #debug-puzzle-bar.hidden { display: none !important; }
 #debug-puzzle-bar label { color: #1A1A1A; }
+.debug-auto-solve {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  cursor: pointer;
+  user-select: none;
+}
+.debug-auto-solve input {
+  width: 16px;
+  height: 16px;
+  accent-color: #E53935;
+  cursor: pointer;
+}
 .debug-picker-group {
   display: flex;
   flex-direction: column;
   gap: 6px;
 }
 #debug-puzzle-select,
+#debug-zeichnen-select,
 #debug-transform-select,
 #debug-minigame-select {
   width: 100%;
@@ -83,6 +97,7 @@ html, body { margin: 0; height: 100%; background: #4DA3FF; font-family: sans-ser
   background: #fff;
 }
 #btn-debug-open-puzzle,
+#btn-debug-open-zeichnen,
 #btn-debug-open-transform,
 #btn-debug-open-minigame {
   font-size: 14px;
@@ -95,6 +110,7 @@ html, body { margin: 0; height: 100%; background: #4DA3FF; font-family: sans-ser
   cursor: pointer;
 }
 #btn-debug-open-puzzle:active,
+#btn-debug-open-zeichnen:active,
 #btn-debug-open-transform:active,
 #btn-debug-open-minigame:active {
   transform: translate(2px, 2px);
@@ -309,16 +325,16 @@ html, body { margin: 0; height: 100%; background: #4DA3FF; font-family: sans-ser
 }
 #buchstabenstrasse-footer button {
   pointer-events: auto;
-  font-size: 28px;
+  font-size: 44px;
   font-weight: 800;
-  min-width: 64px;
-  min-height: 64px;
-  padding: 8px 14px;
-  border: 4px solid #1A1A1A;
-  border-radius: 14px;
+  min-width: 104px;
+  min-height: 104px;
+  padding: 12px 20px;
+  border: 5px solid #1A1A1A;
+  border-radius: 18px;
   background: #FFD600;
   color: #1A1A1A;
-  box-shadow: 4px 4px 0 #1A1A1A;
+  box-shadow: 5px 5px 0 #1A1A1A;
   cursor: pointer;
   touch-action: manipulation;
 }
@@ -354,8 +370,8 @@ html, body { margin: 0; height: 100%; background: #4DA3FF; font-family: sans-ser
   animation: ballkanone-miss-pulse 420ms ease-out;
 }
 #buchstabenstrasse-feedback {
-  margin: 0; font-size: 18px; font-weight: 800; min-height: 1.3em;
-  padding: 4px 12px; border-radius: 8px;
+  margin: 0; font-size: 22px; font-weight: 800; min-height: 1.3em;
+  padding: 8px 16px; border-radius: 10px;
   transition: transform 120ms ease-out, opacity 120ms ease-out;
 }
 #buchstabenstrasse-feedback.feedback-hit {
@@ -364,9 +380,44 @@ html, body { margin: 0; height: 100%; background: #4DA3FF; font-family: sans-ser
   animation: ballkanone-feedback-pop 520ms ease-out;
 }
 #buchstabenstrasse-feedback.feedback-miss {
-  color: #B71C1C;
-  background: rgba(239, 154, 154, 0.95);
-  animation: ballkanone-feedback-shake 520ms ease-out;
+  color: #fff;
+  background: rgba(198, 40, 40, 0.96);
+  border: 3px solid #1A1A1A;
+  box-shadow: 4px 4px 0 #1A1A1A;
+  animation: buchstabenstrasse-miss-shake 700ms ease-out;
+}
+#buchstabenstrasse-feedback.feedback-miss-pass {
+  color: #1A1A1A;
+  background: rgba(255, 213, 79, 0.96);
+  border: 3px solid #1A1A1A;
+  box-shadow: 4px 4px 0 #1A1A1A;
+  animation: buchstabenstrasse-miss-shake 700ms ease-out;
+}
+#buchstabenstrasse-overlay.miss-flash::after,
+#buchstabenstrasse-overlay.miss-flash-pass::after {
+  content: "";
+  position: absolute; inset: 0; z-index: 4; pointer-events: none;
+  animation: buchstabenstrasse-overlay-flash 700ms ease-out;
+}
+#buchstabenstrasse-overlay.miss-flash::after {
+  background: rgba(229, 57, 53, 0.28);
+}
+#buchstabenstrasse-overlay.miss-flash-pass::after {
+  background: rgba(255, 179, 0, 0.22);
+}
+@keyframes buchstabenstrasse-miss-shake {
+  0% { transform: translateX(0) scale(0.85); opacity: 0; }
+  15% { transform: translateX(-10px) scale(1.12); opacity: 1; }
+  30% { transform: translateX(10px) scale(1.1); }
+  45% { transform: translateX(-8px) scale(1.06); }
+  60% { transform: translateX(6px) scale(1.03); }
+  80% { transform: translateX(-3px) scale(1); }
+  100% { transform: translateX(0) scale(1); opacity: 1; }
+}
+@keyframes buchstabenstrasse-overlay-flash {
+  0% { opacity: 0; }
+  18% { opacity: 1; }
+  100% { opacity: 0; }
 }
 #buchstabenstrasse-canvas { flex: 1; width: 100%; height: 100%; display: block; touch-action: none; }
 #buchstabenstrasse-success {
@@ -376,6 +427,117 @@ html, body { margin: 0; height: 100%; background: #4DA3FF; font-family: sans-ser
 }
 #buchstabenstrasse-success .success-title { font-size: 40px; font-weight: 800; margin: 0 0 8px; }
 #buchstabenstrasse-continue {
+  font-size: 24px; font-weight: 800; padding: 12px 28px;
+  border: 4px solid #1A1A1A; background: #FFD600; box-shadow: 4px 4px 0 #1A1A1A; cursor: pointer;
+}
+#kettenhochhaus-overlay {
+  position: fixed; inset: 0; z-index: 22; display: flex; flex-direction: column;
+  background: #1a2430;
+}
+#kettenhochhaus-chrome {
+  position: absolute; top: 0; left: 0; right: 0; z-index: 2;
+  padding: 12px 16px; display: flex; flex-wrap: wrap; gap: 10px 18px; align-items: center;
+  background: linear-gradient(180deg, rgba(10,16,24,0.82), transparent);
+  color: #f5f2ea; pointer-events: none;
+}
+#kettenhochhaus-chrome button,
+#kettenhochhaus-success button,
+#kettenhochhaus-zones button { pointer-events: auto; }
+#kettenhochhaus-hear {
+  font-size: 18px; font-weight: 700; padding: 10px 16px;
+  border: 3px solid #1A1A1A; background: #4DA3FF; color: #1A1A1A;
+}
+#kettenhochhaus-prompt { margin: 0; font-size: 18px; font-weight: 600; }
+#kettenhochhaus-progress {
+  margin: 0; font-size: 16px; font-weight: 700;
+  padding: 4px 10px; border-radius: 8px; background: rgba(0,0,0,0.28);
+}
+#kettenhochhaus-letter {
+  margin: 0;
+  font-size: clamp(36px, 6vw, 56px);
+  font-weight: 800;
+  font-family: Georgia, "Times New Roman", serif;
+  color: #FFD600;
+  text-shadow: 0 1px 0 #1a1a1a, 3px 3px 0 rgba(0,0,0,0.4);
+  min-width: 1.2em;
+  text-align: center;
+}
+#kettenhochhaus-lives {
+  margin: 0;
+  font-size: 15px;
+  font-weight: 700;
+  padding: 4px 10px;
+  border: 2px solid rgba(255,255,255,0.35);
+  border-radius: 8px;
+  background: rgba(0,0,0,0.28);
+}
+#kettenhochhaus-lives.has-misses {
+  border-color: #EF5350;
+  color: #FFCDD2;
+  animation: ballkanone-miss-pulse 420ms ease-out;
+}
+#kettenhochhaus-feedback {
+  margin: 0; font-size: 18px; font-weight: 800; min-height: 1.3em;
+  padding: 4px 12px; border-radius: 8px;
+  transition: transform 120ms ease-out, opacity 120ms ease-out;
+}
+#kettenhochhaus-feedback.feedback-hit {
+  color: #1B5E20;
+  background: rgba(129, 199, 132, 0.92);
+  animation: ballkanone-feedback-pop 520ms ease-out;
+}
+#kettenhochhaus-feedback.feedback-miss {
+  color: #B71C1C;
+  background: rgba(239, 154, 154, 0.95);
+  animation: ballkanone-feedback-shake 520ms ease-out;
+}
+#kettenhochhaus-canvas { flex: 1; width: 100%; height: 100%; display: block; touch-action: none; }
+#kettenhochhaus-footer {
+  position: absolute; left: 0; right: 0; bottom: 0; z-index: 2;
+  display: flex; flex-direction: column; justify-content: center; align-items: center; gap: 12px;
+  padding: 14px 20px 22px;
+  pointer-events: none;
+  background: linear-gradient(0deg, rgba(10,16,24,0.88), transparent);
+}
+#kettenhochhaus-zones {
+  display: flex; gap: 12px; flex-wrap: wrap; justify-content: center;
+}
+#kettenhochhaus-zones button {
+  font-size: 20px;
+  font-weight: 800;
+  min-width: 110px;
+  min-height: 56px;
+  padding: 10px 16px;
+  border: 4px solid #1A1A1A;
+  border-radius: 14px;
+  background: #FFD600;
+  color: #1A1A1A;
+  box-shadow: 4px 4px 0 #1A1A1A;
+  cursor: pointer;
+  touch-action: manipulation;
+}
+#kettenhochhaus-zones button[data-zone="mitte"] { background: #4DA3FF; }
+#kettenhochhaus-zones button[data-zone="ende"] { background: #FF8A80; }
+#kettenhochhaus-word {
+  margin: 0;
+  font-size: clamp(28px, 5vw, 44px);
+  font-weight: 800;
+  letter-spacing: 0.12em;
+  font-family: Georgia, "Times New Roman", serif;
+  color: #FFD600;
+  text-shadow: 0 1px 0 #1a1a1a, 3px 3px 0 rgba(0,0,0,0.4);
+  padding: 8px 22px;
+  border: 3px solid #1A1A1A;
+  border-radius: 14px;
+  background: rgba(255,255,255,0.14);
+}
+#kettenhochhaus-success {
+  position: absolute; inset: 0; display: flex; flex-direction: column;
+  align-items: center; justify-content: center; z-index: 3;
+  background: rgba(255,255,255,0.88);
+}
+#kettenhochhaus-success .success-title { font-size: 40px; font-weight: 800; margin: 0 0 8px; }
+#kettenhochhaus-continue {
   font-size: 24px; font-weight: 800; padding: 12px 28px;
   border: 4px solid #1A1A1A; background: #FFD600; box-shadow: 4px 4px 0 #1A1A1A; cursor: pointer;
 }
