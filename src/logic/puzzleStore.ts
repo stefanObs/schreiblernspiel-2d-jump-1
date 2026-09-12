@@ -160,6 +160,17 @@ export function builtinPuzzles(): Puzzle[] {
       levelId: "bachbruecke",
     },
     {
+      id: "bach-letter-pos",
+      type: "letterPos",
+      hintMode: "hear",
+      solution: "",
+      voiceText: "",
+      effect: "spawn_platform",
+      prompt: "Wo steckt der Buchstabe?",
+      anlautVisible: false,
+      levelId: "bachbruecke",
+    },
+    {
       id: "bach-compare",
       type: "math",
       hintMode: "motif",

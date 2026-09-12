@@ -1,5 +1,5 @@
 export type HintMode = "hear" | "motif";
-export type PuzzleType = "word" | "math" | "transform" | "trace";
+export type PuzzleType = "word" | "math" | "transform" | "trace" | "letterPos";
 export type MathSubtype = "plus" | "compare" | "countdown";
 export type WorldEffect =
   | "spawn_bridge"
@@ -40,6 +40,10 @@ export type Puzzle = {
   syllables?: string[];
   /** Free / multi-target transform: any listed answer is accepted. */
   transformOptions?: TransformOption[];
+  /** Shown letter for letterPos puzzles (lowercase). */
+  letterPosLetter?: string;
+  /** Spoken word (lowercase) for letterPos puzzles. */
+  letterPosWord?: string;
   levelId: string;
 };
 

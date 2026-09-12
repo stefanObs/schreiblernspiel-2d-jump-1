@@ -578,6 +578,7 @@ export class BachbrueckeScene extends Phaser.Scene {
       "bach-seil-motif": { x: u(1280), y: GROUND - u(50) },
       "bach-ballkanone-ball": { x: u(1480), y: GROUND - u(50) },
       "bach-plus": { x: u(1680), y: u(320) },
+      "bach-letter-pos": { x: u(1900), y: GROUND - u(50) },
       "bach-compare": { x: u(2140), y: GROUND - u(50) },
       "bach-ballkanone-kanone": { x: u(2260), y: GROUND - u(50) },
       "bach-bolt-name": { x: u(2360), y: GROUND - u(50) },

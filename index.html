@@ -64,6 +64,14 @@
         <button type="button" id="puzzle-hear">Wort hören</button>
         <div id="puzzle-motif"></div>
         <p id="puzzle-prompt"></p>
+        <div id="puzzle-letter-pos" class="hidden" aria-live="polite">
+          <p id="puzzle-letter-pos-letter" class="letter-pos-letter" aria-label="Gesuchter Buchstabe"></p>
+          <div id="puzzle-letter-pos-choices" class="letter-pos-choices" role="group" aria-label="Position">
+            <button type="button" data-pos="anfang">Anfang</button>
+            <button type="button" data-pos="mitte">Mitte</button>
+            <button type="button" data-pos="ende">Ende</button>
+          </div>
+        </div>
         <div id="puzzle-text-row">
           <input id="puzzle-input" autocomplete="off" autocapitalize="off" />
           <div id="puzzle-letter-slots" class="hidden" aria-label="Buchstabenfelder">

@@ -8,6 +8,11 @@ import {
   type AnlautTile,
 } from "./logic/anlaut";
 import { joinLetterSlots, nextEmptySlotIndex } from "./logic/letterSlots";
+import {
+  isLetterPosPuzzle,
+  letterPosHearLabel,
+  realizeLetterPosPuzzle,
+} from "./logic/letterPositionPuzzle";
 import { matchPuzzle } from "./logic/matchPuzzle";
 import { motifArtPaths } from "./logic/motifArt";
 import { starFillLevels, starsFromWrongAttempts } from "./logic/starRating";
@@ -52,6 +57,7 @@ export function isOverlayOpen(): boolean {
 }
 
 export function openPuzzle(puzzle: Puzzle, handlers: OverlayHandlers): void {
+  puzzle = realizeLetterPosPuzzle(puzzle);
   current = puzzle;
   wrongAttempts = 0;
   scrambledCache = null;
@@ -66,6 +72,10 @@ export function openPuzzle(puzzle: Puzzle, handlers: OverlayHandlers): void {
   const motif = document.getElementById("puzzle-motif");
   const hear = document.getElementById("puzzle-hear");
   const textRow = document.getElementById("puzzle-text-row");
+  const letterPos = document.getElementById("puzzle-letter-pos");
+  const letterPosLetter = document.getElementById("puzzle-letter-pos-letter");
+  const letterPosChoices = document.getElementById("puzzle-letter-pos-choices");
+  const okBtn = document.getElementById("puzzle-ok");
   const trace = document.getElementById("puzzle-trace") as HTMLCanvasElement | null;
   const anlaut = document.getElementById("puzzle-anlaut");
   const hints = document.getElementById("puzzle-hints");
@@ -79,6 +89,10 @@ export function openPuzzle(puzzle: Puzzle, handlers: OverlayHandlers): void {
     !motif ||
     !hear ||
     !textRow ||
+    !letterPos ||
+    !letterPosLetter ||
+    !letterPosChoices ||
+    !okBtn ||
     !trace ||
     !anlaut ||
     !hints ||
@@ -91,23 +105,27 @@ export function openPuzzle(puzzle: Puzzle, handlers: OverlayHandlers): void {
   err.textContent = "";
   input.value = "";
   input.classList.remove("wrong");
+  letterPosChoices.classList.remove("wrong");
   success.classList.add("hidden");
   panel.classList.remove("hidden");
   anlaut.classList.remove("success-dim");
   root.classList.remove("hidden");
 
   const isTrace = puzzle.type === "trace";
-  textRow.classList.toggle("hidden", isTrace);
+  const isLetterPos = isLetterPosPuzzle(puzzle);
+  textRow.classList.toggle("hidden", isTrace || isLetterPos);
+  letterPos.classList.toggle("hidden", !isLetterPos);
+  okBtn.classList.toggle("hidden", isLetterPos);
   trace.classList.toggle("hidden", !isTrace);
 
   const arts = motifArtPaths(puzzle);
-  motif.classList.toggle("hidden", arts.length === 0);
+  motif.classList.toggle("hidden", arts.length === 0 || isLetterPos);
   motif.innerHTML = arts
     .map((src) => `<img src="${src}" alt="" decoding="async" class="puzzle-motif-img" />`)
     .join("");
   motif.classList.toggle("motif-strip", arts.length > 1);
 
-  hear.textContent = "Wort hören";
+  hear.textContent = isLetterPos ? letterPosHearLabel(puzzle) : "Wort hören";
   hear.onclick = () => speakFn(puzzle.voiceText);
 
   let solvedEffect = puzzle.effect;
@@ -121,7 +139,28 @@ export function openPuzzle(puzzle: Puzzle, handlers: OverlayHandlers): void {
     });
   };
 
-  if (isTrace) {
+  if (isLetterPos) {
+    const upper = (puzzle.letterPosLetter ?? "").toLocaleUpperCase("de-DE");
+    letterPosLetter.textContent = upper;
+    const choiceBtns = Array.from(
+      letterPosChoices.querySelectorAll<HTMLButtonElement>("button[data-pos]"),
+    );
+    for (const btn of choiceBtns) {
+      btn.onclick = () => {
+        const answer = btn.dataset.pos ?? "";
+        const result = matchPuzzle(puzzle, answer);
+        if (result.ok) {
+          solvedEffect = result.effect === "none" ? puzzle.effect : result.effect;
+          finishOk();
+        } else {
+          wrongAttempts += 1;
+          letterPosChoices.classList.add("wrong");
+          err.textContent = "Noch einmal versuchen.";
+          applyWritingModeUi();
+        }
+      };
+    }
+  } else if (isTrace) {
     setupTrace(trace, puzzle, finishOk);
   } else {
     const useLetterSlots = puzzle.type === "word" || puzzle.type === "transform";
@@ -171,7 +210,7 @@ export function openPuzzle(puzzle: Puzzle, handlers: OverlayHandlers): void {
         applyWritingModeUi();
       }
     };
-    document.getElementById("puzzle-ok")!.onclick = submit;
+    okBtn.onclick = submit;
     const onEnter = (e: KeyboardEvent) => {
       if (e.key === "Enter") submit();
     };
@@ -238,30 +277,39 @@ function applyWritingModeUi(): void {
   if (!prompt || !hear || !anlaut || !hints) return;
 
   const isTrace = puzzle.type === "trace";
-  const learnSpeak = modeOn && mode === "learn" && !isTrace;
+  const isLetterPos = isLetterPosPuzzle(puzzle);
+  const learnSpeak = modeOn && mode === "learn" && !isTrace && !isLetterPos;
 
   if (learnSpeak) {
     prompt.textContent = `${puzzle.prompt} Schreib die Buchstaben ab.`;
   } else if (puzzle.hintMode === "hear" && !isTrace) {
-    prompt.textContent = `${puzzle.prompt} Tippe auf „Wort hören“.`;
+    const hearLabel = isLetterPos ? letterPosHearLabel(puzzle) : "Wort hören";
+    prompt.textContent = `${puzzle.prompt} Tippe auf „${hearLabel}“.`;
   } else {
     prompt.textContent = puzzle.prompt;
   }
 
   // Learn mode always offers hearing; otherwise follow station hintMode.
-  const showHear = !isTrace && (learnSpeak || puzzle.hintMode === "hear");
+  const showHear = !isTrace && (learnSpeak || puzzle.hintMode === "hear" || isLetterPos);
   hear.classList.toggle("hidden", !showHear);
-  if (learnSpeak && !autoSpokeThisOpen) {
+  if ((learnSpeak || isLetterPos) && !autoSpokeThisOpen) {
     autoSpokeThisOpen = true;
     speakFn(puzzle.voiceText);
   }
 
-  const showAnlaut = modeOn ? ui.showAnlaut : puzzle.anlautVisible !== false;
+  const showAnlaut = isLetterPos
+    ? false
+    : modeOn
+      ? ui.showAnlaut
+      : puzzle.anlautVisible !== false;
   anlaut.classList.toggle("hidden", !showAnlaut);
   if (showAnlaut) renderAnlaut(anlaut, speakFn);
   else anlaut.innerHTML = "";
 
-  if (ui.showCopyBoxes && modeOn && !isTrace) {
+  if (isLetterPos || isTrace) {
+    hints.classList.add("hidden");
+    hints.innerHTML = "";
+  } else if (ui.showCopyBoxes && modeOn && !isTrace) {
     renderCopyBoxes(hints, puzzle, mode === "practice");
   } else if (ui.showProgressiveHints && modeOn && !isTrace) {
     const stage = hintStageFromAttempts(wrongAttempts);

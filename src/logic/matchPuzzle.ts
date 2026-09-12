@@ -17,6 +17,11 @@ export function matchPuzzle(puzzle: Puzzle, input: string): MatchResult {
   if (puzzle.type === "math") {
     return matchMath(puzzle, input) ? { ok: true, effect: puzzle.effect } : fail;
   }
+  if (puzzle.type === "letterPos") {
+    return answersMatch(input, puzzle.solution)
+      ? { ok: true, effect: puzzle.effect }
+      : fail;
+  }
   return fail;
 }
 
