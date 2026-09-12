@@ -33,15 +33,41 @@ html, body { margin: 0; height: 100%; background: #4DA3FF; font-family: sans-ser
   padding: 6px 10px; border: 3px solid #1A1A1A; box-shadow: 3px 3px 0 #1A1A1A;
   pointer-events: none;
 }
-#btn-debug-ballkanone {
+#debug-puzzle-bar {
   position: fixed; top: 96px; right: 12px; z-index: 35;
-  background: #FFD600; color: #1A1A1A; font-weight: 800; font-size: 13px;
-  padding: 8px 12px; border: 3px solid #1A1A1A; box-shadow: 3px 3px 0 #1A1A1A;
+  display: flex; flex-direction: column; gap: 6px;
+  align-items: stretch;
+  width: min(280px, calc(100vw - 24px));
+  padding: 10px;
+  background: #FFD600;
+  border: 3px solid #1A1A1A;
+  box-shadow: 3px 3px 0 #1A1A1A;
+  font-weight: 800;
+  font-size: 12px;
+}
+#debug-puzzle-bar.hidden { display: none !important; }
+#debug-puzzle-bar label { color: #1A1A1A; }
+#debug-puzzle-select {
+  width: 100%;
+  font-size: 13px;
+  font-weight: 700;
+  padding: 6px;
+  border: 3px solid #1A1A1A;
+  background: #fff;
+}
+#btn-debug-open-puzzle {
+  font-size: 14px;
+  font-weight: 800;
+  padding: 8px 12px;
+  border: 3px solid #1A1A1A;
+  background: #4DA3FF;
+  color: #1A1A1A;
+  box-shadow: 2px 2px 0 #1A1A1A;
   cursor: pointer;
 }
-#btn-debug-ballkanone:active {
+#btn-debug-open-puzzle:active {
   transform: translate(2px, 2px);
-  box-shadow: 1px 1px 0 #1A1A1A;
+  box-shadow: 0 0 0 #1A1A1A;
 }
 #puzzle-debug {
   width: min(760px, 100%);
@@ -247,6 +273,9 @@ html, body { margin: 0; height: 100%; background: #4DA3FF; font-family: sans-ser
 #puzzle-letter-slots.wrong .letter-slot-input {
   border-color: #E53935;
 }
+#puzzle-letter-slots.repeat-size {
+  align-items: flex-end;
+}
 .letter-trio {
   display: flex;
   gap: 8px;
@@ -262,9 +291,24 @@ html, body { margin: 0; height: 100%; background: #4DA3FF; font-family: sans-ser
   border-radius: 8px;
   text-transform: none;
 }
+.letter-slot-input:focus {
+  outline: 3px solid #4DA3FF;
+  outline-offset: 2px;
+  background: #E3F2FD;
+}
 .letter-slot-input.letter-slot-mid {
   background: #FFE082;
   border-color: #F9A825;
+}
+#puzzle-letter-slots.repeat-size .letter-trio[data-trio="0"] .letter-slot-input {
+  width: 72px;
+  height: 84px;
+  font-size: 44px;
+}
+#puzzle-letter-slots.repeat-size .letter-trio[data-trio="1"] .letter-slot-input {
+  width: 40px;
+  height: 46px;
+  font-size: 18px;
 }
 #puzzle-ok { font-size: 22px; padding: 12px 24px; border: 4px solid #1A1A1A; background: #FFD600; }
 #puzzle-letter-pos {
@@ -535,6 +579,12 @@ html, body { margin: 0; height: 100%; background: #4DA3FF; font-family: sans-ser
 }
 .syllable-group {
   display: flex; flex-direction: column; align-items: center; gap: 4px;
+}
+.syllable-group.repeat-large .letter-slot {
+  width: 42px; height: 52px; font-size: 36px;
+}
+.syllable-group.repeat-small .letter-slot {
+  width: 20px; height: 26px; font-size: 16px;
 }
 .letter-slots {
   display: flex; gap: 6px;

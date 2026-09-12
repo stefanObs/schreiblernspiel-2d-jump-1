@@ -10,6 +10,8 @@ import {
   toggleDebugMode,
   type WritingMode,
 } from "./logic/writingMode";
+import { debugPuzzleOptions, dispatchDebugOpenPuzzle } from "./logic/debugPuzzles";
+import { mergedPuzzles } from "./logic/puzzleStore";
 import { isOverlayOpen, refreshWritingModeUi } from "./puzzleUi";
 
 /** Wire Settings dialog + F1 debug once after DOM is ready. */
@@ -21,6 +23,30 @@ export function installAppChrome(): void {
 }
 
 function ensureSettingsDom(): void {
+  if (!document.getElementById("debug-badge")) {
+    const badge = document.createElement("div");
+    badge.id = "debug-badge";
+    badge.className = "hidden";
+    badge.textContent = "DEBUG (F1)";
+    document.body.appendChild(badge);
+  }
+
+  if (!document.getElementById("debug-puzzle-bar")) {
+    const bar = document.createElement("div");
+    bar.id = "debug-puzzle-bar";
+    bar.className = "hidden";
+    bar.innerHTML = `
+      <label for="debug-puzzle-select">Rätsel testen</label>
+      <select id="debug-puzzle-select" aria-label="Rätsel zum Testen"></select>
+      <button type="button" id="btn-debug-open-puzzle" title="Gewähltes Rätsel öffnen">Öffnen</button>
+    `;
+    document.body.appendChild(bar);
+  }
+
+  // Remove legacy single-puzzle debug buttons if present from older sessions.
+  document.getElementById("btn-debug-ballkanone")?.remove();
+  document.getElementById("btn-debug-repeat")?.remove();
+
   if (document.getElementById("settings-overlay")) return;
 
   const nav = document.getElementById("top-nav");
@@ -30,14 +56,6 @@ function ensureSettingsDom(): void {
     btn.id = "btn-settings";
     btn.textContent = "Einstellungen";
     nav.appendChild(btn);
-  }
-
-  if (!document.getElementById("debug-badge")) {
-    const badge = document.createElement("div");
-    badge.id = "debug-badge";
-    badge.className = "hidden";
-    badge.textContent = "DEBUG (F1)";
-    document.body.appendChild(badge);
   }
 
   const overlay = document.createElement("div");
@@ -100,15 +118,43 @@ function bindDebugHotkey(): void {
     syncDebugBadge();
     if (isOverlayOpen()) refreshWritingModeUi();
   });
+
+  const openBtn = document.getElementById("btn-debug-open-puzzle");
+  openBtn?.addEventListener("click", (e) => {
+    e.preventDefault();
+    if (!isDebugMode() || isOverlayOpen()) return;
+    const select = document.getElementById("debug-puzzle-select") as HTMLSelectElement | null;
+    const id = select?.value?.trim();
+    if (id) dispatchDebugOpenPuzzle(id);
+  });
+}
+
+function fillDebugPuzzleSelect(): void {
+  const select = document.getElementById("debug-puzzle-select") as HTMLSelectElement | null;
+  if (!select) return;
+  const prev = select.value;
+  const options = debugPuzzleOptions(mergedPuzzles());
+  select.innerHTML = "";
+  for (const opt of options) {
+    const el = document.createElement("option");
+    el.value = opt.id;
+    el.textContent = opt.label;
+    select.appendChild(el);
+  }
+  if (prev && options.some((o) => o.id === prev)) select.value = prev;
 }
 
 function syncDebugBadge(): void {
   const badge = document.getElementById("debug-badge");
-  if (!badge) return;
-  badge.classList.toggle("hidden", !isDebugMode());
-  if (isDebugMode()) {
-    badge.textContent = `DEBUG (F1) · ${WRITING_MODE_LABELS[getEffectiveWritingMode()]}`;
+  if (badge) {
+    badge.classList.toggle("hidden", !isDebugMode());
+    if (isDebugMode()) {
+      badge.textContent = `DEBUG (F1) · ${WRITING_MODE_LABELS[getEffectiveWritingMode()]}`;
+    }
   }
+  const bar = document.getElementById("debug-puzzle-bar");
+  bar?.classList.toggle("hidden", !isDebugMode());
+  if (isDebugMode()) fillDebugPuzzleSelect();
 }
 
 export function syncDebugBadgeLabel(): void {

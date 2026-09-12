@@ -21,6 +21,8 @@ import {
 } from "../logic/animState";
 import { MECH_ART, MECH_CHARS, alternateShape, artPublicPath, characterDisplayName, shapeDisplayName, textureFor } from "../logic/mechCatalog";
 import { isDebugMode } from "../logic/writingMode";
+import { DEBUG_OPEN_PUZZLE_EVENT, type DebugOpenPuzzleDetail } from "../logic/debugPuzzles";
+import { parsePuzzleQuery } from "../logic/puzzleQuery";
 import { isOverlayOpen, openPuzzle } from "../puzzleUi";
 import { openBallkanone } from "../minigames/ballkanone";
 import { unlockSpeech } from "../logic/speech";
@@ -177,19 +179,33 @@ export class BachbrueckeScene extends Phaser.Scene {
     this.bob(goal, u(4), 900);
     this.wireHud();
     this.wireKeyboard();
-    this.wireDebugBallkanone();
+    this.wireDebugOpeners();
+    this.openQueryPuzzle();
   }
 
-  private wireDebugBallkanone(): void {
-    window.addEventListener("schreiblern:debug-ballkanone", () => {
-      if (!isDebugMode() || this.worldPaused || isOverlayOpen() || this.transforming) return;
-      unlockSpeech();
-      const puzzle =
-        mergedPuzzles().find((p) => p.id === "bach-ballkanone-ball") ??
-        mergedPuzzles().find((p) => p.type === "ballkanone");
-      if (!puzzle) return;
-      this.openStation(puzzle);
+  private wireDebugOpeners(): void {
+    window.addEventListener(DEBUG_OPEN_PUZZLE_EVENT, ((e: CustomEvent<DebugOpenPuzzleDetail>) => {
+      if (!isDebugMode()) return;
+      const id = e.detail?.puzzleId?.trim();
+      if (!id) return;
+      const puzzle = mergedPuzzles().find((p) => p.id === id);
+      if (puzzle) this.tryOpenStation(puzzle);
+    }) as EventListener);
+  }
+
+  private openQueryPuzzle(): void {
+    const { puzzleId } = parsePuzzleQuery(window.location.search);
+    if (!puzzleId) return;
+    this.time.delayedCall(80, () => {
+      const puzzle = mergedPuzzles().find((p) => p.id === puzzleId);
+      if (puzzle) this.tryOpenStation(puzzle);
     });
+  }
+
+  private tryOpenStation(puzzle: Puzzle): void {
+    if (this.worldPaused || isOverlayOpen() || this.transforming) return;
+    unlockSpeech();
+    this.openStation(puzzle);
   }
 
   private createAnims(): void {
@@ -578,17 +594,16 @@ export class BachbrueckeScene extends Phaser.Scene {
       "bach-seil-motif": { x: u(1280), y: GROUND - u(50) },
       "bach-ballkanone-ball": { x: u(1480), y: GROUND - u(50) },
       "bach-plus": { x: u(1680), y: u(320) },
-      "bach-letter-pos": { x: u(1900), y: GROUND - u(50) },
+      "bach-repeat-digit": { x: u(1900), y: GROUND - u(50) },
+      "bach-letter-pos": { x: u(2020), y: GROUND - u(50) },
       "bach-compare": { x: u(2140), y: GROUND - u(50) },
       "bach-ballkanone-kanone": { x: u(2260), y: GROUND - u(50) },
       "bach-bolt-name": { x: u(2360), y: GROUND - u(50) },
-      "bach-auto": { x: u(2500), y: GROUND - u(50) },
-      "bach-marina-name": { x: u(2640), y: GROUND - u(50) },
-      "bach-mech": { x: u(2780), y: GROUND - u(50) },
-      "bach-rush-name": { x: u(2920), y: GROUND - u(50) },
-      "bach-transform-marina": { x: u(3060), y: GROUND - u(50) },
-      "bach-transform-rush": { x: u(3200), y: GROUND - u(50) },
-      "bach-trace-bridge": { x: u(3340), y: GROUND - u(50) },
+      "bach-marina-name": { x: u(2500), y: GROUND - u(50) },
+      "bach-rush-name": { x: u(2640), y: GROUND - u(50) },
+      "bach-transform-marina": { x: u(2780), y: GROUND - u(50) },
+      "bach-transform-rush": { x: u(2920), y: GROUND - u(50) },
+      "bach-trace-bridge": { x: u(3060), y: GROUND - u(50) },
     };
     for (const puzzle of mergedPuzzles()) {
       const pos = xs[puzzle.id] ?? { x: u(600), y: GROUND - u(50) };
@@ -635,13 +650,14 @@ export class BachbrueckeScene extends Phaser.Scene {
     const kb = this.input.keyboard;
     if (!kb) return;
     this.keys = {
-      left: kb.addKey(Phaser.Input.Keyboard.KeyCodes.LEFT),
-      right: kb.addKey(Phaser.Input.Keyboard.KeyCodes.RIGHT),
-      up: kb.addKey(Phaser.Input.Keyboard.KeyCodes.UP),
-      space: kb.addKey(Phaser.Input.Keyboard.KeyCodes.SPACE),
-      a: kb.addKey(Phaser.Input.Keyboard.KeyCodes.A),
-      d: kb.addKey(Phaser.Input.Keyboard.KeyCodes.D),
-      w: kb.addKey(Phaser.Input.Keyboard.KeyCodes.W),
+      // enableCapture=false so A/D/W/Space still type into puzzle letter slots.
+      left: kb.addKey(Phaser.Input.Keyboard.KeyCodes.LEFT, false),
+      right: kb.addKey(Phaser.Input.Keyboard.KeyCodes.RIGHT, false),
+      up: kb.addKey(Phaser.Input.Keyboard.KeyCodes.UP, false),
+      space: kb.addKey(Phaser.Input.Keyboard.KeyCodes.SPACE, false),
+      a: kb.addKey(Phaser.Input.Keyboard.KeyCodes.A, false),
+      d: kb.addKey(Phaser.Input.Keyboard.KeyCodes.D, false),
+      w: kb.addKey(Phaser.Input.Keyboard.KeyCodes.W, false),
     };
     window.addEventListener("keydown", (e) => {
       if (isOverlayOpen() || isTypingField()) return;
