@@ -18,9 +18,13 @@ import { matchPuzzle } from "./logic/matchPuzzle";
 import { motifArtPaths } from "./logic/motifArt";
 import { rngFromPuzzleQuery } from "./logic/puzzleQuery";
 import {
+  LETTER_POS_ROUNDS,
+  applyLetterPosItem,
   isLetterPosPuzzle,
   letterPosHearLabel,
-  realizeLetterPosPuzzle,
+  letterPosProgressLabel,
+  startLetterPosSession,
+  type LetterPosItem,
 } from "./logic/letterPositionPuzzle";
 import { letterPosWordArt } from "./logic/letterPosWordArt";
 import {
@@ -76,7 +80,12 @@ export function isOverlayOpen(): boolean {
 export function openPuzzle(puzzle: Puzzle, handlers: OverlayHandlers): void {
   const queryRng = typeof window !== "undefined" ? rngFromPuzzleQuery(window.location.search) : undefined;
   puzzle = realizeRepeatPuzzle(puzzle, queryRng);
-  puzzle = realizeLetterPosPuzzle(puzzle);
+  let letterPosRounds: LetterPosItem[] = [];
+  if (isLetterPosPuzzle(puzzle)) {
+    const session = startLetterPosSession(puzzle, queryRng);
+    puzzle = session.puzzle;
+    letterPosRounds = session.rounds;
+  }
   puzzle = realizeLetterPickPuzzle(puzzle);
   puzzle = realizeMathPuzzle(puzzle);
   current = puzzle;
@@ -94,6 +103,7 @@ export function openPuzzle(puzzle: Puzzle, handlers: OverlayHandlers): void {
   const hear = document.getElementById("puzzle-hear");
   const textRow = document.getElementById("puzzle-text-row");
   const letterPos = document.getElementById("puzzle-letter-pos");
+  const letterPosProgress = document.getElementById("puzzle-letter-pos-progress");
   const letterPosLetter = document.getElementById("puzzle-letter-pos-letter");
   const letterPosChoices = document.getElementById("puzzle-letter-pos-choices");
   const letterPosWordBtn = document.getElementById(
@@ -120,6 +130,7 @@ export function openPuzzle(puzzle: Puzzle, handlers: OverlayHandlers): void {
     !hear ||
     !textRow ||
     !letterPos ||
+    !letterPosProgress ||
     !letterPosLetter ||
     !letterPosChoices ||
     !letterPosWordBtn ||
@@ -179,21 +190,37 @@ export function openPuzzle(puzzle: Puzzle, handlers: OverlayHandlers): void {
   };
 
   if (isLetterPos) {
-    const upper = (puzzle.letterPosLetter ?? "").toLocaleUpperCase("de-DE");
-    letterPosLetter.textContent = upper;
-    const art =
-      letterPosWordArt(puzzle.letterPosWord ?? "") ??
-      letterPosWordArt(puzzle.voiceText);
-    if (art) {
-      letterPosImg.src = art;
-      letterPosImg.alt = puzzle.voiceText || "Wortbild";
-      letterPosWordBtn.classList.remove("missing-art");
-    } else {
-      letterPosImg.removeAttribute("src");
-      letterPosImg.alt = "";
-      letterPosWordBtn.classList.add("missing-art");
-    }
-    letterPosWordBtn.onclick = () => speakFn(puzzle.voiceText);
+    const totalRounds = letterPosRounds.length || LETTER_POS_ROUNDS;
+    let roundIndex = 0;
+
+    const showLetterPosRound = (index: number, speakNow: boolean) => {
+      const item = letterPosRounds[index];
+      if (!item) return;
+      puzzle = applyLetterPosItem(puzzle, item);
+      current = puzzle;
+      roundIndex = index;
+      letterPosProgress.textContent = letterPosProgressLabel(index, totalRounds);
+      letterPosChoices.classList.remove("wrong");
+      err.textContent = "";
+      const upper = item.letter.toLocaleUpperCase("de-DE");
+      letterPosLetter.textContent = upper;
+      const art = letterPosWordArt(item.word) ?? letterPosWordArt(item.display);
+      if (art) {
+        letterPosImg.src = art;
+        letterPosImg.alt = item.display;
+        letterPosWordBtn.classList.remove("missing-art");
+      } else {
+        letterPosImg.removeAttribute("src");
+        letterPosImg.alt = "";
+        letterPosWordBtn.classList.add("missing-art");
+      }
+      letterPosWordBtn.onclick = () => speakFn(puzzle.voiceText);
+      hear.onclick = () => speakFn(puzzle.voiceText);
+      applyWritingModeUi();
+      if (speakNow) speakFn(puzzle.voiceText);
+    };
+
+    showLetterPosRound(0, false);
     const choiceBtns = Array.from(
       letterPosChoices.querySelectorAll<HTMLButtonElement>("button[data-pos]"),
     );
@@ -203,7 +230,11 @@ export function openPuzzle(puzzle: Puzzle, handlers: OverlayHandlers): void {
         const result = matchPuzzle(puzzle, answer);
         if (result.ok) {
           solvedEffect = result.effect === "none" ? puzzle.effect : result.effect;
-          finishOk();
+          if (roundIndex + 1 < totalRounds) {
+            showLetterPosRound(roundIndex + 1, true);
+          } else {
+            finishOk();
+          }
         } else {
           wrongAttempts += 1;
           letterPosChoices.classList.add("wrong");

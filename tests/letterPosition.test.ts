@@ -1,14 +1,19 @@
 import { describe, expect, it, beforeEach } from "vitest";
 import {
   LETTER_POS_ITEMS,
+  LETTER_POS_ROUNDS,
+  applyLetterPosItem,
   exclusiveLetterPosition,
   isLetterPosPuzzle,
   itemKey,
   letterPosHearLabel,
+  letterPosProgressLabel,
   pickLetterPosItem,
+  pickLetterPosItems,
   realizeLetterPosPuzzle,
   resetLetterPosPick,
   rngForLetterPosIndex,
+  startLetterPosSession,
 } from "../src/logic/letterPositionPuzzle";
 import { letterPosWordArt } from "../src/logic/letterPosWordArt";
 import { matchPuzzle } from "../src/logic/matchPuzzle";
@@ -68,5 +73,27 @@ describe("letter position realize + match", () => {
     const b = pickLetterPosItem(() => 0.01);
     expect(LETTER_POS_ITEMS.some((it) => itemKey(it) === itemKey(a))).toBe(true);
     expect(itemKey(a)).not.toBe(itemKey(b));
+  });
+
+  it("starts a session with three distinct words", () => {
+    expect(LETTER_POS_ROUNDS).toBe(3);
+    const raw = builtinPuzzles().find((p) => p.id === "bach-letter-pos")!;
+    const { puzzle, rounds } = startLetterPosSession(raw, rngForLetterPosIndex(0));
+    expect(rounds).toHaveLength(3);
+    const keys = rounds.map(itemKey);
+    expect(new Set(keys).size).toBe(3);
+    expect(puzzle.letterPosWord).toBe(rounds[0]!.word);
+    expect(puzzle.solution).toBe(rounds[0]!.position);
+    const second = applyLetterPosItem(puzzle, rounds[1]!);
+    expect(second.letterPosWord).toBe(rounds[1]!.word);
+    expect(matchPuzzle(second, rounds[1]!.position).ok).toBe(true);
+    expect(letterPosProgressLabel(0)).toBe("Wort 1 von 3");
+    expect(letterPosProgressLabel(2)).toBe("Wort 3 von 3");
+  });
+
+  it("pickLetterPosItems returns unique keys", () => {
+    const items = pickLetterPosItems(LETTER_POS_ROUNDS, () => 0.42);
+    expect(items).toHaveLength(3);
+    expect(new Set(items.map(itemKey)).size).toBe(3);
   });
 });

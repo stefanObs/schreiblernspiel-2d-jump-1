@@ -169,6 +169,9 @@ export function letterPosHearLabel(_puzzle?: Puzzle): string {
   return "Wort hören";
 }
 
+/** How many words must be solved per letterPos station open. */
+export const LETTER_POS_ROUNDS = 3;
+
 function indexFromRng(rng: () => number, length: number): number {
   if (length <= 0) return 0;
   const r = rng();
@@ -191,12 +194,27 @@ export function pickLetterPosItem(
   rng: () => number = Math.random,
   avoidKey: string = lastPickedKey,
 ): LetterPosItem {
-  const pool = avoidKey
-    ? LETTER_POS_ITEMS.filter((it) => itemKey(it) !== avoidKey)
-    : LETTER_POS_ITEMS;
-  const list = pool.length > 0 ? pool : LETTER_POS_ITEMS;
-  const picked = list[indexFromRng(rng, list.length)]!;
-  lastPickedKey = itemKey(picked);
+  const avoid = new Set(avoidKey ? [avoidKey] : []);
+  return pickLetterPosItems(1, rng, avoid)[0]!;
+}
+
+/** Pick `count` distinct pool items (by itemKey). Updates last-picked to the final item. */
+export function pickLetterPosItems(
+  count: number = LETTER_POS_ROUNDS,
+  rng: () => number = Math.random,
+  avoidKeys: ReadonlySet<string> = lastPickedKey ? new Set([lastPickedKey]) : new Set(),
+): LetterPosItem[] {
+  const n = Math.max(1, Math.min(count, LETTER_POS_ITEMS.length));
+  const picked: LetterPosItem[] = [];
+  const used = new Set(avoidKeys);
+  for (let i = 0; i < n; i++) {
+    const pool = LETTER_POS_ITEMS.filter((it) => !used.has(itemKey(it)));
+    const list = pool.length > 0 ? pool : LETTER_POS_ITEMS;
+    const item = list[indexFromRng(rng, list.length)]!;
+    picked.push(item);
+    used.add(itemKey(item));
+  }
+  lastPickedKey = itemKey(picked[picked.length - 1]!);
   return picked;
 }
 
@@ -207,13 +225,8 @@ export function rngForLetterPosIndex(index: number): () => number {
   return () => (i + 0.5) / len;
 }
 
-/** Fill solution, prompt, voice and show-letter from a random pool item. */
-export function realizeLetterPosPuzzle(
-  puzzle: Puzzle,
-  rng: () => number = Math.random,
-): Puzzle {
-  if (!isLetterPosPuzzle(puzzle)) return puzzle;
-  const item = pickLetterPosItem(rng);
+/** Apply one pool item onto puzzle fields used by UI/match. */
+export function applyLetterPosItem(puzzle: Puzzle, item: LetterPosItem): Puzzle {
   const upper = item.letter.toLocaleUpperCase("de-DE");
   return {
     ...puzzle,
@@ -223,4 +236,28 @@ export function realizeLetterPosPuzzle(
     letterPosLetter: item.letter,
     letterPosWord: item.word,
   };
+}
+
+export function letterPosProgressLabel(roundIndex: number, total: number = LETTER_POS_ROUNDS): string {
+  const n = Math.min(total, Math.max(1, roundIndex + 1));
+  return `Wort ${n} von ${total}`;
+}
+
+/** Fill first of three round items; UI advances through the rest. */
+export function realizeLetterPosPuzzle(
+  puzzle: Puzzle,
+  rng: () => number = Math.random,
+): Puzzle {
+  if (!isLetterPosPuzzle(puzzle)) return puzzle;
+  return startLetterPosSession(puzzle, rng).puzzle;
+}
+
+/** Start a multi-word letterPos session (rounds for the UI). */
+export function startLetterPosSession(
+  puzzle: Puzzle,
+  rng: () => number = Math.random,
+): { puzzle: Puzzle; rounds: LetterPosItem[] } {
+  if (!isLetterPosPuzzle(puzzle)) return { puzzle, rounds: [] };
+  const rounds = pickLetterPosItems(LETTER_POS_ROUNDS, rng);
+  return { puzzle: applyLetterPosItem(puzzle, rounds[0]!), rounds };
 }
