@@ -1,3 +1,4 @@
+import { compareSign } from "./mathPuzzle";
 import { answersMatch, normalizeAnswer } from "./normalizeAnswer";
 import type { Puzzle, WorldEffect } from "./puzzleTypes";
 
@@ -36,7 +37,7 @@ function matchMath(puzzle: Puzzle, input: string): boolean {
     const left = puzzle.compareLeft ?? 0;
     const right = puzzle.compareRight ?? 0;
     const larger = Math.max(left, right);
-    const expectedSign = left < right ? ">" : left > right ? "<" : "=";
+    const expectedSign = compareSign(left, right);
     return n === expectedSign || n === String(larger);
   }
   if (puzzle.mathSubtype === "countdown") {

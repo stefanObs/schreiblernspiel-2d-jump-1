@@ -1,6 +1,6 @@
 export type HintMode = "hear" | "motif";
 export type PuzzleType = "word" | "math" | "transform" | "trace" | "letterPos";
-export type MathSubtype = "plus" | "compare" | "countdown";
+export type MathSubtype = "plus" | "minus" | "compare" | "countdown";
 export type WorldEffect =
   | "spawn_bridge"
   | "spawn_rope"

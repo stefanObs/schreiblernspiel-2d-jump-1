@@ -14,6 +14,7 @@ import {
   realizeLetterPosPuzzle,
 } from "./logic/letterPositionPuzzle";
 import { matchPuzzle } from "./logic/matchPuzzle";
+import { realizeMathPuzzle } from "./logic/mathPuzzle";
 import { motifArtPaths } from "./logic/motifArt";
 import { starFillLevels, starsFromWrongAttempts } from "./logic/starRating";
 import { TRACE_PASS, templatePath, traceScore } from "./logic/traceScore";
@@ -58,6 +59,7 @@ export function isOverlayOpen(): boolean {
 
 export function openPuzzle(puzzle: Puzzle, handlers: OverlayHandlers): void {
   puzzle = realizeLetterPosPuzzle(puzzle);
+  puzzle = realizeMathPuzzle(puzzle);
   current = puzzle;
   wrongAttempts = 0;
   scrambledCache = null;

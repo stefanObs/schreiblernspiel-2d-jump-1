@@ -16,6 +16,15 @@ import {
 import { TRACE_PASS, templatePath, traceScore } from "../src/logic/traceScore";
 import { builtinPuzzles, exportPuzzlesJson, freeTransformPuzzle, parsePuzzlesJson } from "../src/logic/puzzleStore";
 import { motifArtPath, motifArtPaths } from "../src/logic/motifArt";
+import {
+  COMPARE_OPTIONS,
+  comparePrompt,
+  compareRelation,
+  compareSign,
+  realizeMathPuzzle,
+  resetMathPick,
+  rngForMathIndex,
+} from "../src/logic/mathPuzzle";
 import { MECH_ART, MECH_CHARS, alternateShape, artPublicPath, shapeDisplayName, textureFor } from "../src/logic/mechCatalog";
 import type { Puzzle } from "../src/logic/puzzleTypes";
 import { starFillLevels, starsFromWrongAttempts } from "../src/logic/starRating";
@@ -108,9 +117,51 @@ describe("matchPuzzle", () => {
     const cmp = builtinPuzzles().find((p) => p.id === "bach-compare")!;
     expect(matchPuzzle(plus, "3").ok).toBe(true);
     expect(matchPuzzle(plus, "4").ok).toBe(false);
-    expect(matchPuzzle(cmp, ">").ok).toBe(true);
+    // 4 □ 7 → smaller: `<` or larger number 7 (not `>`)
+    expect(cmp.compareLeft).toBe(4);
+    expect(cmp.compareRight).toBe(7);
+    expect(matchPuzzle(cmp, "<").ok).toBe(true);
     expect(matchPuzzle(cmp, "7").ok).toBe(true);
-    expect(matchPuzzle(cmp, "<").ok).toBe(false);
+    expect(matchPuzzle(cmp, ">").ok).toBe(false);
+  });
+  it("compare pool has 200 options with greater smaller and equal", () => {
+    expect(COMPARE_OPTIONS).toHaveLength(200);
+    const relations = new Set(COMPARE_OPTIONS.map((p) => compareRelation(p.left, p.right)));
+    expect(relations).toEqual(new Set(["greater", "smaller", "equal"]));
+    expect(compareSign(4, 7)).toBe("<");
+    expect(compareSign(7, 4)).toBe(">");
+    expect(compareSign(5, 5)).toBe("=");
+  });
+  it("realized compare uses ASCII signs in the prompt and matches encoding", () => {
+    const raw = builtinPuzzles().find((p) => p.id === "bach-compare")!;
+    expect(raw.prompt).toBe("Zahlen in Relation zueinander");
+
+    resetMathPick();
+    const smaller = realizeMathPuzzle(raw, rngForMathIndex(4 * 14 + 7, "compare")); // 4□7
+    expect(smaller.compareLeft).toBe(4);
+    expect(smaller.compareRight).toBe(7);
+    expect(smaller.solution).toBe("<");
+    expect(smaller.prompt).toBe(comparePrompt(4, 7));
+    expect(smaller.prompt).toContain("<");
+    expect(smaller.prompt).toContain(">");
+    expect(matchPuzzle(smaller, "<").ok).toBe(true);
+    expect(matchPuzzle(smaller, "7").ok).toBe(true);
+    expect(matchPuzzle(smaller, ">").ok).toBe(false);
+
+    resetMathPick();
+    const greater = realizeMathPuzzle(raw, rngForMathIndex(7 * 14 + 4, "compare")); // 7□4
+    expect(greater.compareLeft).toBe(7);
+    expect(greater.compareRight).toBe(4);
+    expect(greater.solution).toBe(">");
+    expect(matchPuzzle(greater, ">").ok).toBe(true);
+
+    resetMathPick();
+    const equal = realizeMathPuzzle(raw, rngForMathIndex(5 * 14 + 5, "compare")); // 5□5
+    expect(equal.compareLeft).toBe(5);
+    expect(equal.compareRight).toBe(5);
+    expect(equal.solution).toBe("=");
+    expect(matchPuzzle(equal, "=").ok).toBe(true);
+    expect(matchPuzzle(equal, "5").ok).toBe(true);
   });
   it("transform auto uses motif only", () => {
     const auto = builtinPuzzles().find((p) => p.id === "bach-auto")!;
