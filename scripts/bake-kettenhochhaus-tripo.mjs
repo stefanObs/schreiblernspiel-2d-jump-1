@@ -29,6 +29,7 @@ const outDir = join(rootDir, "public/models/kettenhochhaus");
 
 /** @type {{ id: string, longest: number, sit: boolean, ratio: number, error: number }[]} */
 const JOBS = [
+  { id: "axe", longest: 1.1, sit: true, ratio: 0.5, error: 0.0015 },
   { id: "chain", longest: 1.6, sit: true, ratio: 0.55, error: 0.0015 },
   { id: "highrise", longest: 3.2, sit: true, ratio: 0.45, error: 0.002 },
   { id: "hose", longest: 1.4, sit: true, ratio: 0.5, error: 0.0015 },

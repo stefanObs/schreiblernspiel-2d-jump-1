@@ -43,7 +43,8 @@ Supported minigames: **ballkanone** and **kettenhochhaus** (separate folders; ne
 
 | Id | Out GLB | Role |
 |----|---------|------|
-| `chain` | `chain.glb` | Kette zum Durchschlagen |
+| `axe` | `axe.glb` | Feuerwehr- / Rettungs-Axt |
+| `chain` | `chain.glb` | Querkette (L→R über den Bildschirm) |
 | `highrise` | `highrise.glb` | Brennendes Hochhaus |
 | `hose` | `hose.glb` | Löschschlauch / Prop |
 | `ground` | `ground.glb` | Boden / Straße |

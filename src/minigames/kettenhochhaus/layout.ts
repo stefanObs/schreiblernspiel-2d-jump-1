@@ -1,32 +1,40 @@
 import { CHAIN_COUNT } from "./types";
 
-/** Street runs +X toward the burning high-rise. Chains block the road in sequence. */
+/**
+ * Street runs **forward +Z** toward the burning high-rise.
+ * Each chain spans **left→right (+X)** across the screen as a barrier.
+ */
 export const STREET = {
-  mechZ: 1.15,
-  chainZ: 0.35,
-  padZ: 2.2,
-  /** World X of each of the 4 chains across the street. */
-  chainXs: [-1.6, -0.05, 1.5, 3.05] as const,
-  buildingX: 5.1,
-  buildingZ: -1.0,
-  hoseX: 4.35,
-  hoseZ: 0.35,
-  /** Offset: mech stands this far before the active chain (toward −X). */
-  approachBeforeChain: 0.95,
-  /** Mech X when running to the building after the last chain. */
-  extinguishMechX: 4.2,
+  /** Mech / road center X */
+  roadX: 0,
+  /** Chain hangs at this height */
+  chainY: 1.15,
+  /** Pads in front of the active chain (toward camera / −Z from chain) */
+  padOffsetZ: 1.35,
+  /** World Z of each of the 4 chains (increasing = further forward). */
+  chainZs: [-0.2, 1.6, 3.4, 5.2] as const,
+  buildingZ: 7.4,
+  buildingX: 0.35,
+  hoseX: -1.1,
+  hoseZ: 6.6,
+  /** Mech stands this far before the active chain (toward −Z). */
+  approachBeforeChain: 1.15,
+  /** Mech Z when extinguishing at the building. */
+  extinguishMechZ: 6.5,
+  /** Half-span of the chain barrier along X (left / right ends). */
+  chainHalfSpan: 2.35,
 } as const;
 
-export function chainWorldX(index: number): number {
-  const xs = STREET.chainXs;
-  const i = Math.max(0, Math.min(xs.length - 1, index));
-  return xs[i]!;
+export function chainWorldZ(index: number): number {
+  const zs = STREET.chainZs;
+  const i = Math.max(0, Math.min(zs.length - 1, index));
+  return zs[i]!;
 }
 
 /** Idle stand position before the chain the player must solve next. */
-export function mechIdleX(chainIndex: number): number {
-  if (chainIndex >= CHAIN_COUNT) return STREET.extinguishMechX;
-  return chainWorldX(chainIndex) - STREET.approachBeforeChain;
+export function mechIdleZ(chainIndex: number): number {
+  if (chainIndex >= CHAIN_COUNT) return STREET.extinguishMechZ;
+  return chainWorldZ(chainIndex) - STREET.approachBeforeChain;
 }
 
 /**
@@ -34,14 +42,18 @@ export function mechIdleX(chainIndex: number): number {
  * After the last chain → building extinguish spot.
  */
 export function mechRunTargetAfterHit(brokenIndex: number): number {
-  if (brokenIndex >= CHAIN_COUNT - 1) return STREET.extinguishMechX;
-  return mechIdleX(brokenIndex + 1);
+  if (brokenIndex >= CHAIN_COUNT - 1) return STREET.extinguishMechZ;
+  return mechIdleZ(brokenIndex + 1);
 }
 
-/** Zone pads sit near the active chain: Anfang left, Mitte center, Ende right. */
-export function zonePadX(zone: "anfang" | "mitte" | "ende", chainIndex: number): number {
-  const base = chainWorldX(Math.min(chainIndex, CHAIN_COUNT - 1));
-  if (zone === "anfang") return base - 1.0;
-  if (zone === "ende") return base + 1.0;
-  return base;
+/** Zone pads: Anfang left, Mitte center, Ende right — at the active chain. */
+export function zonePadX(zone: "anfang" | "mitte" | "ende"): number {
+  if (zone === "anfang") return -1.15;
+  if (zone === "ende") return 1.15;
+  return 0;
+}
+
+export function zonePadZ(chainIndex: number): number {
+  // Pads sit slightly toward the camera (−Z) from the active chain.
+  return chainWorldZ(Math.min(chainIndex, CHAIN_COUNT - 1)) - 0.85;
 }

@@ -8,7 +8,7 @@ import {
 } from "three";
 import { GLTFLoader } from "three/addons/loaders/GLTFLoader.js";
 
-export const KETTENHOCHHAUS_PROP_IDS = ["chain", "highrise", "hose", "ground"] as const;
+export const KETTENHOCHHAUS_PROP_IDS = ["chain", "highrise", "hose", "ground", "axe"] as const;
 export type KettenhochhausPropId = (typeof KETTENHOCHHAUS_PROP_IDS)[number];
 
 export const KETTENHOCHHAUS_URLS: Record<KettenhochhausPropId, string> = {
@@ -16,6 +16,7 @@ export const KETTENHOCHHAUS_URLS: Record<KettenhochhausPropId, string> = {
   highrise: "/models/kettenhochhaus/highrise.glb",
   hose: "/models/kettenhochhaus/hose.glb",
   ground: "/models/kettenhochhaus/ground.glb",
+  axe: "/models/kettenhochhaus/axe.glb",
 };
 
 const templates = new Map<KettenhochhausPropId, Object3D>();

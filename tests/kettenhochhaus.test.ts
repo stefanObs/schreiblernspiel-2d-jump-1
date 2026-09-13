@@ -8,7 +8,7 @@ import { starsFromWrongAttempts } from "../src/logic/starRating";
 import {
   acceptedZonesFor,
   chainFromLetterPosItem,
-  chainWorldX,
+  chainWorldZ,
   CHAIN_COUNT,
   clickZone,
   createSim,
@@ -16,12 +16,13 @@ import {
   KETTENHOCHHAUS_PROP_IDS,
   KETTENHOCHHAUS_URLS,
   MAX_LIVES,
-  mechIdleX,
+  mechIdleZ,
   mechRunTargetAfterHit,
   pickChainRounds,
   STREET,
   zoneOfIndex,
   zonePadX,
+  zonePadZ,
 } from "../src/minigames/kettenhochhaus";
 
 describe("kettenhochhaus letter zones", () => {
@@ -121,7 +122,7 @@ describe("kettenhochhaus station wiring", () => {
 
 describe("kettenhochhaus tripo models", () => {
   it("ships loader URLs for all MVP props with baked GLBs on disk", () => {
-    expect(KETTENHOCHHAUS_PROP_IDS).toEqual(["chain", "highrise", "hose", "ground"]);
+    expect(KETTENHOCHHAUS_PROP_IDS).toEqual(["chain", "highrise", "hose", "ground", "axe"]);
     for (const id of KETTENHOCHHAUS_PROP_IDS) {
       expect(KETTENHOCHHAUS_URLS[id]).toBe(`/models/kettenhochhaus/${id}.glb`);
       const disk = join(process.cwd(), "public", "models", "kettenhochhaus", `${id}.glb`);
@@ -131,29 +132,30 @@ describe("kettenhochhaus tripo models", () => {
 });
 
 describe("kettenhochhaus street progression", () => {
-  it("places four chains in increasing X toward the building", () => {
-    expect(STREET.chainXs).toHaveLength(CHAIN_COUNT);
+  it("places four chains forward (+Z) spanning left→right", () => {
+    expect(STREET.chainZs).toHaveLength(CHAIN_COUNT);
     for (let i = 1; i < CHAIN_COUNT; i++) {
-      expect(chainWorldX(i)).toBeGreaterThan(chainWorldX(i - 1));
+      expect(chainWorldZ(i)).toBeGreaterThan(chainWorldZ(i - 1));
     }
-    expect(STREET.buildingX).toBeGreaterThan(chainWorldX(CHAIN_COUNT - 1));
+    expect(STREET.buildingZ).toBeGreaterThan(chainWorldZ(CHAIN_COUNT - 1));
+    expect(STREET.chainHalfSpan).toBeGreaterThan(1);
   });
 
-  it("parks the mech before each chain and runs to the next after a hit", () => {
+  it("parks the mech before each chain and runs forward after a hit", () => {
     for (let i = 0; i < CHAIN_COUNT; i++) {
-      expect(mechIdleX(i)).toBeLessThan(chainWorldX(i));
+      expect(mechIdleZ(i)).toBeLessThan(chainWorldZ(i));
     }
-    expect(mechRunTargetAfterHit(0)).toBe(mechIdleX(1));
-    expect(mechRunTargetAfterHit(1)).toBe(mechIdleX(2));
-    expect(mechRunTargetAfterHit(2)).toBe(mechIdleX(3));
-    expect(mechRunTargetAfterHit(3)).toBe(STREET.extinguishMechX);
-    expect(STREET.extinguishMechX).toBeGreaterThan(chainWorldX(CHAIN_COUNT - 1));
+    expect(mechRunTargetAfterHit(0)).toBe(mechIdleZ(1));
+    expect(mechRunTargetAfterHit(1)).toBe(mechIdleZ(2));
+    expect(mechRunTargetAfterHit(2)).toBe(mechIdleZ(3));
+    expect(mechRunTargetAfterHit(3)).toBe(STREET.extinguishMechZ);
+    expect(STREET.extinguishMechZ).toBeGreaterThan(chainWorldZ(CHAIN_COUNT - 1));
   });
 
-  it("keeps zone pads around the active chain (Anfang left, Ende right)", () => {
-    expect(zonePadX("anfang", 2)).toBeLessThan(zonePadX("mitte", 2));
-    expect(zonePadX("mitte", 2)).toBeLessThan(zonePadX("ende", 2));
-    expect(zonePadX("mitte", 2)).toBe(chainWorldX(2));
+  it("keeps zone pads left/center/right in front of the active chain", () => {
+    expect(zonePadX("anfang")).toBeLessThan(zonePadX("mitte"));
+    expect(zonePadX("mitte")).toBeLessThan(zonePadX("ende"));
+    expect(zonePadZ(2)).toBeLessThan(chainWorldZ(2));
   });
 
   it("does not break a chain on miss (sim stays on same index)", () => {
@@ -166,6 +168,5 @@ describe("kettenhochhaus street progression", () => {
     const state = createSim({ chains: four });
     expect(clickZone(state, "ende").kind).toBe("miss");
     expect(state.chainIndex).toBe(0);
-    expect(mechRunTargetAfterHit(0)).toBe(mechIdleX(1)); // run target unused on miss
   });
 });

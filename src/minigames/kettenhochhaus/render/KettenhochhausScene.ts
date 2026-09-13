@@ -18,16 +18,18 @@ import {
 } from "three";
 import type { Object3D } from "three";
 import {
-  chainWorldX,
-  mechIdleX,
+  chainWorldZ,
+  mechIdleZ,
   mechRunTargetAfterHit,
   STREET,
   zonePadX,
+  zonePadZ,
 } from "../layout";
 import {
   cloneKettenhochhausProp,
   hasKettenhochhausModel,
   preloadKettenhochhausModels,
+  type KettenhochhausPropId,
 } from "../loadModels";
 import {
   brokenMask,
@@ -89,14 +91,18 @@ function proceduralFlame(): Mesh {
   );
 }
 
-function proceduralChainLink(): Group {
+function proceduralChainSpan(): Group {
   const g = new Group();
-  const metal = new MeshStandardMaterial({ color: 0x8a9098, metalness: 0.7, roughness: 0.35 });
-  const ring = new Mesh(new CylinderGeometry(0.16, 0.16, 0.08, 16), metal);
-  ring.rotation.z = Math.PI / 2;
-  const bar = new Mesh(new BoxGeometry(0.08, 0.55, 0.08), metal);
-  bar.position.y = -0.28;
-  g.add(ring, bar);
+  const metal = new MeshStandardMaterial({ color: 0x8a9098, metalness: 0.75, roughness: 0.32 });
+  const bar = new Mesh(new BoxGeometry(STREET.chainHalfSpan * 2, 0.12, 0.12), metal);
+  bar.position.y = 0;
+  g.add(bar);
+  for (let i = -3; i <= 3; i++) {
+    const link = new Mesh(new CylinderGeometry(0.14, 0.14, 0.08, 12), metal);
+    link.rotation.z = Math.PI / 2;
+    link.position.set(i * 0.55, 0, 0);
+    g.add(link);
+  }
   return g;
 }
 
@@ -109,7 +115,7 @@ function proceduralMech(): Group {
   const head = new Mesh(new BoxGeometry(0.35, 0.32, 0.32), bodyMat);
   head.position.y = 1.4;
   const arm = new Mesh(new BoxGeometry(0.18, 0.55, 0.18), dark);
-  arm.position.set(0.4, 0.95, 0);
+  arm.position.set(0.42, 0.95, 0);
   arm.name = "strikeArm";
   const legL = new Mesh(new BoxGeometry(0.18, 0.55, 0.22), dark);
   legL.position.set(-0.14, 0.28, 0);
@@ -121,11 +127,23 @@ function proceduralMech(): Group {
   return g;
 }
 
+function proceduralAxe(): Group {
+  const g = new Group();
+  const wood = new MeshStandardMaterial({ color: 0x6d4c41, roughness: 0.75, metalness: 0.05 });
+  const steel = new MeshStandardMaterial({ color: 0xb0bec5, metalness: 0.85, roughness: 0.25 });
+  const handle = new Mesh(new CylinderGeometry(0.04, 0.05, 0.85, 8), wood);
+  handle.position.y = 0.35;
+  const head = new Mesh(new BoxGeometry(0.45, 0.22, 0.08), steel);
+  head.position.set(0.12, 0.78, 0);
+  g.add(handle, head);
+  return g;
+}
+
 function makeZonePad(zone: ChainZone, color: number): Group {
   const g = new Group();
   const mat = new MeshStandardMaterial({ color, roughness: 0.55, metalness: 0.15 });
-  const pad = new Mesh(new BoxGeometry(1.0, 0.18, 1.0), mat);
-  pad.position.y = 0.09;
+  const pad = new Mesh(new BoxGeometry(1.0, 0.16, 1.0), mat);
+  pad.position.y = 0.08;
   g.add(pad);
   g.userData.zone = zone;
   return g;
@@ -133,7 +151,7 @@ function makeZonePad(zone: ChainZone, color: number): Group {
 
 function proceduralGround(): Mesh {
   return new Mesh(
-    new BoxGeometry(22, 0.2, 12),
+    new BoxGeometry(14, 0.2, 18),
     new MeshStandardMaterial({ color: 0x5c8f4a, roughness: 0.95 }),
   );
 }
@@ -152,24 +170,27 @@ function proceduralHose(): Group {
   return g;
 }
 
-function mountProp(
-  id: "chain" | "highrise" | "hose" | "ground",
-  fallback: () => Object3D,
-): Object3D {
+function mountProp(id: KettenhochhausPropId, fallback: () => Object3D): Object3D {
   return (hasKettenhochhausModel(id) && cloneKettenhochhausProp(id)) || fallback();
 }
 
+type ChainVisual = {
+  root: Group;
+  left: Object3D;
+  right: Object3D;
+};
+
 type Phase =
   | { kind: "idle" }
-  | { kind: "strike"; t: number; result: ClickResult }
+  | { kind: "strike"; t: number; result: ClickResult; standZ: number }
   | { kind: "break"; t: number; chainIndex: number; won: boolean }
-  | { kind: "run"; t: number; fromX: number; toX: number; won: boolean }
+  | { kind: "run"; t: number; fromZ: number; toZ: number; won: boolean }
   | { kind: "extinguish"; t: number }
   | { kind: "done" };
 
-const STRIKE_DUR = 0.32;
-const BREAK_DUR = 0.5;
-const RUN_DUR = 0.75;
+const STRIKE_DUR = 0.38;
+const BREAK_DUR = 0.55;
+const RUN_DUR = 0.8;
 const EXTINGUISH_DUR = 1.35;
 
 export class KettenhochhausApp {
@@ -188,12 +209,13 @@ export class KettenhochhausApp {
   private phase: Phase = { kind: "idle" };
   private mech!: Group;
   private strikeArm!: Object3D;
+  private axe!: Object3D;
   private legL!: Object3D;
   private legR!: Object3D;
   private building!: Group;
   private hose!: Object3D;
   private flames: Mesh[] = [];
-  private chainRoots: Group[] = [];
+  private chains: ChainVisual[] = [];
   private zonePads: Group[] = [];
   private spray: Mesh | null = null;
   private onPointer: (e: PointerEvent) => void;
@@ -206,7 +228,7 @@ export class KettenhochhausApp {
     this.renderer = new WebGLRenderer({ canvas, antialias: true, alpha: false });
     this.renderer.setPixelRatio(Math.min(window.devicePixelRatio, 2));
     this.renderer.outputColorSpace = SRGBColorSpace;
-    this.camera = new PerspectiveCamera(48, 1, 0.1, 80);
+    this.camera = new PerspectiveCamera(50, 1, 0.1, 90);
     this.onPointer = (e) => this.handlePointer(e);
     canvas.addEventListener("pointerdown", this.onPointer);
   }
@@ -216,7 +238,7 @@ export class KettenhochhausApp {
     await preloadKettenhochhausModels();
     if (this.disposed) return;
     this.buildScene();
-    this.placeMechAt(mechIdleX(0));
+    this.placeMechAt(mechIdleZ(0));
     this.syncZonePads();
     this.updateCamera(true);
     this.resize();
@@ -234,7 +256,6 @@ export class KettenhochhausApp {
     this.raf = requestAnimationFrame(loop);
   }
 
-  /** HTML / external zone click (Anfang / Mitte / Ende). */
   chooseZone(zone: ChainZone): void {
     this.applyZone(zone);
   }
@@ -258,8 +279,9 @@ export class KettenhochhausApp {
     return this.phase.kind !== "idle";
   }
 
-  private placeMechAt(x: number): void {
-    this.mech.position.set(x, 0, STREET.mechZ);
+  private placeMechAt(z: number): void {
+    this.mech.position.set(STREET.roadX, 0, z);
+    this.mech.rotation.y = 0; // face +Z (forward)
   }
 
   private emitProgress(): void {
@@ -279,22 +301,53 @@ export class KettenhochhausApp {
     const active = this.phase.kind === "idle" && !this.sim.won;
     ZONE_ORDER.forEach((zone, i) => {
       const pad = this.zonePads[i]!;
-      pad.position.set(zonePadX(zone, idx), 0, STREET.padZ);
+      pad.position.set(zonePadX(zone), 0, zonePadZ(idx));
       pad.visible = active;
     });
   }
 
   private updateCamera(snap = false): void {
-    const focusX = this.mech.position.x + 0.8;
-    const targetPos = { x: focusX - 0.2, y: 2.55, z: 7.4 };
-    const look = { x: focusX + 0.6, y: 1.55, z: 0 };
+    const z = this.mech.position.z;
+    const targetPos = { x: 0.15, y: 2.7, z: z - 5.2 };
+    const look = { x: 0.2, y: 1.35, z: z + 2.8 };
     if (snap) {
       this.camera.position.set(targetPos.x, targetPos.y, targetPos.z);
     } else {
-      this.camera.position.x += (targetPos.x - this.camera.position.x) * 0.08;
-      this.camera.position.y += (targetPos.y - this.camera.position.y) * 0.08;
+      this.camera.position.x += (targetPos.x - this.camera.position.x) * 0.1;
+      this.camera.position.y += (targetPos.y - this.camera.position.y) * 0.1;
+      this.camera.position.z += (targetPos.z - this.camera.position.z) * 0.1;
     }
     this.camera.lookAt(look.x, look.y, look.z);
+  }
+
+  private makeChainVisual(): ChainVisual {
+    const root = new Group();
+    const left = mountProp("chain", proceduralChainSpan);
+    const right = mountProp("chain", proceduralChainSpan);
+    // Long axis of baked chain is +Z; yaw so it spans +X (left→right).
+    const yaw = Math.PI / 2;
+    const scale = hasKettenhochhausModel("chain") ? 1.35 : 1;
+    for (const half of [left, right]) {
+      half.rotation.y = yaw;
+      half.scale.setScalar(scale);
+    }
+    // Split into left / right halves of the screen-spanning barrier
+    left.position.set(-STREET.chainHalfSpan * 0.45, 0, 0);
+    right.position.set(STREET.chainHalfSpan * 0.45, 0, 0);
+    root.add(left, right);
+    return { root, left, right };
+  }
+
+  private resetChainVisual(cv: ChainVisual, z: number): void {
+    cv.root.visible = true;
+    cv.root.position.set(0, STREET.chainY, z);
+    cv.root.rotation.set(0, 0, 0);
+    cv.left.position.set(-STREET.chainHalfSpan * 0.45, 0, 0);
+    cv.right.position.set(STREET.chainHalfSpan * 0.45, 0, 0);
+    cv.left.rotation.set(0, Math.PI / 2, 0);
+    cv.right.rotation.set(0, Math.PI / 2, 0);
+    cv.left.scale.setScalar(hasKettenhochhausModel("chain") ? 1.35 : 1);
+    cv.right.scale.setScalar(hasKettenhochhausModel("chain") ? 1.35 : 1);
   }
 
   private buildScene(): void {
@@ -302,24 +355,23 @@ export class KettenhochhausApp {
     this.scene.add(new HemisphereLight(0xe8f4ff, 0x5a4030, 0.95));
     this.scene.add(new AmbientLight(0xffffff, 0.35));
     const sun = new DirectionalLight(0xfff0d8, 1.15);
-    sun.position.set(4, 9, 3);
+    sun.position.set(3, 10, -2);
     this.scene.add(sun);
 
     const ground = mountProp("ground", proceduralGround);
     if (hasKettenhochhausModel("ground")) {
-      ground.scale.set(1.6, 0.35, 1.15);
-      ground.position.set(1.2, 0, 0.2);
+      ground.scale.set(1.4, 0.35, 1.8);
+      ground.position.set(0, 0, 3.2);
     } else {
-      ground.position.set(1.0, -0.1, 0);
+      ground.position.set(0, -0.1, 3);
     }
     this.scene.add(ground);
 
-    // Asphalt strip along the street
     const road = new Mesh(
-      new BoxGeometry(16, 0.06, 2.4),
+      new BoxGeometry(3.2, 0.06, 16),
       new MeshStandardMaterial({ color: 0x4a4f55, roughness: 0.92, metalness: 0.05 }),
     );
-    road.position.set(1.2, 0.02, STREET.mechZ);
+    road.position.set(0, 0.02, 3.2);
     this.scene.add(road);
 
     const buildingMesh = mountProp("highrise", proceduralBuilding);
@@ -336,7 +388,7 @@ export class KettenhochhausApp {
       flame.position.set(
         STREET.buildingX + (i % 2 === 0 ? -0.35 : 0.35),
         flameY + (i < 2 ? 0 : 0.25),
-        STREET.buildingZ + (i < 2 ? 0.4 : -0.2),
+        STREET.buildingZ + (i < 2 ? 0.35 : -0.25),
       );
       this.flames.push(flame);
       this.scene.add(flame);
@@ -346,7 +398,7 @@ export class KettenhochhausApp {
     this.hose.position.set(STREET.hoseX, 0, STREET.hoseZ);
     if (hasKettenhochhausModel("hose")) {
       this.hose.scale.setScalar(0.9);
-      this.hose.rotation.y = -Math.PI / 2;
+      this.hose.rotation.y = Math.PI / 2;
     }
     this.scene.add(this.hose);
 
@@ -354,26 +406,25 @@ export class KettenhochhausApp {
     this.strikeArm = this.mech.getObjectByName("strikeArm") ?? this.mech;
     this.legL = this.mech.getObjectByName("legL") ?? this.mech;
     this.legR = this.mech.getObjectByName("legR") ?? this.mech;
+
+    this.axe = mountProp("axe", proceduralAxe);
+    if (hasKettenhochhausModel("axe")) {
+      // Bake: grip opposite head along +X → tip head upward for a chop
+      this.axe.scale.setScalar(0.55);
+      this.axe.rotation.set(0, 0, -Math.PI / 2.2);
+      this.axe.position.set(0.12, -0.05, 0.05);
+    } else {
+      this.axe.scale.setScalar(0.7);
+      this.axe.position.set(0.05, 0.15, 0);
+    }
+    this.strikeArm.add(this.axe);
     this.scene.add(this.mech);
 
     for (let i = 0; i < CHAIN_COUNT; i++) {
-      const root = new Group();
-      const link = mountProp("chain", proceduralChainLink);
-      if (hasKettenhochhausModel("chain")) {
-        link.scale.setScalar(1.0);
-        link.rotation.y = Math.PI / 2;
-        link.position.y = 0.55;
-      } else {
-        link.scale.setScalar(1.35);
-      }
-      root.add(link);
-      root.position.set(
-        chainWorldX(i),
-        hasKettenhochhausModel("chain") ? 0.8 : 1.35,
-        STREET.chainZ,
-      );
-      this.chainRoots.push(root);
-      this.scene.add(root);
+      const cv = this.makeChainVisual();
+      this.resetChainVisual(cv, chainWorldZ(i));
+      this.chains.push(cv);
+      this.scene.add(cv.root);
     }
 
     const padColors = [0xffd600, 0x4da3ff, 0xff6b6b];
@@ -405,27 +456,24 @@ export class KettenhochhausApp {
 
   private applyZone(zone: ChainZone): void {
     if (this.sim.won || this.disposed || this.busy()) return;
+    const standZ = this.mech.position.z;
     const result = clickZone(this.sim, zone);
     this.hud.onClick(result);
-    this.phase = { kind: "strike", t: STRIKE_DUR, result };
+    this.phase = { kind: "strike", t: STRIKE_DUR, result, standZ };
     this.syncZonePads();
     this.emitProgress();
 
     if (result.kind === "restart") {
-      for (const root of this.chainRoots) {
-        root.visible = true;
-        root.scale.setScalar(1);
-        root.rotation.z = 0;
-      }
-      this.placeMechAt(mechIdleX(0));
+      this.chains.forEach((cv, i) => this.resetChainVisual(cv, chainWorldZ(i)));
+      this.placeMechAt(mechIdleZ(0));
       this.syncZonePads();
     }
   }
 
   private startRunAfterBreak(brokenIndex: number, won: boolean): void {
-    const fromX = this.mech.position.x;
-    const toX = mechRunTargetAfterHit(brokenIndex);
-    this.phase = { kind: "run", t: RUN_DUR, fromX, toX, won };
+    const fromZ = this.mech.position.z;
+    const toZ = mechRunTargetAfterHit(brokenIndex);
+    this.phase = { kind: "run", t: RUN_DUR, fromZ, toZ, won };
   }
 
   private reportWon(): void {
@@ -435,14 +483,13 @@ export class KettenhochhausApp {
   }
 
   private tick(dt: number): void {
-    this.animateFlames(dt);
-    this.animateChains();
+    this.animateFlames();
+    this.animateIdleChains();
     this.advancePhase(dt);
     this.updateCamera(false);
   }
 
-  private animateFlames(dt: number): void {
-    void dt;
+  private animateFlames(): void {
     let extinguishU = 0;
     if (this.phase.kind === "extinguish") {
       extinguishU = 1 - this.phase.t / EXTINGUISH_DUR;
@@ -469,22 +516,20 @@ export class KettenhochhausApp {
     }
   }
 
-  private animateChains(): void {
+  private animateIdleChains(): void {
     const broken = brokenMask(this.sim);
     const breakingIndex = this.phase.kind === "break" ? this.phase.chainIndex : -1;
-    this.chainRoots.forEach((root, i) => {
+    this.chains.forEach((cv, i) => {
       if (i === breakingIndex) return;
       if (broken[i]) {
-        root.visible = false;
+        cv.root.visible = false;
         return;
       }
-      root.visible = true;
+      cv.root.visible = true;
       const active = i === this.sim.chainIndex && this.phase.kind === "idle";
-      root.scale.setScalar(active ? 1.12 : 1);
-      root.rotation.y = this.elapsed * (active ? 1.6 : 0.35);
-      root.rotation.z = 0;
-      root.rotation.x = 0;
-      root.position.y = hasKettenhochhausModel("chain") ? 0.8 : 1.35;
+      const sag = active ? Math.sin(this.elapsed * 3) * 0.03 : 0;
+      cv.root.position.y = STREET.chainY + sag;
+      cv.root.rotation.z = active ? Math.sin(this.elapsed * 2.2) * 0.04 : 0;
     });
   }
 
@@ -492,6 +537,7 @@ export class KettenhochhausApp {
     const p = this.phase;
     if (p.kind === "idle" || p.kind === "done") {
       this.strikeArm.rotation.z = 0;
+      this.strikeArm.rotation.x = 0;
       this.legL.rotation.x = 0;
       this.legR.rotation.x = 0;
       return;
@@ -500,17 +546,16 @@ export class KettenhochhausApp {
     if (p.kind === "strike") {
       p.t = Math.max(0, p.t - dt);
       const u = 1 - p.t / STRIKE_DUR;
-      const swing = Math.sin(u * Math.PI) * 1.05;
-      this.strikeArm.rotation.z = -swing;
-      const standX =
-        p.result.kind === "hit"
-          ? mechIdleX(p.result.chainIndex - 1)
-          : mechIdleX(this.sim.chainIndex);
-      this.mech.position.x = standX + swing * 0.28;
+      // Overhead axe chop toward +Z
+      const swing = Math.sin(u * Math.PI);
+      this.strikeArm.rotation.x = -swing * 1.35;
+      this.strikeArm.rotation.z = -swing * 0.35;
+      this.mech.position.z = p.standZ + swing * 0.22;
 
       if (p.t <= 0) {
+        this.strikeArm.rotation.x = 0;
         this.strikeArm.rotation.z = 0;
-        this.placeMechAt(standX);
+        this.placeMechAt(p.standZ);
         if (p.result.kind === "hit") {
           this.phase = {
             kind: "break",
@@ -528,15 +573,19 @@ export class KettenhochhausApp {
 
     if (p.kind === "break") {
       p.t = Math.max(0, p.t - dt);
-      const root = this.chainRoots[p.chainIndex];
-      if (root) {
+      const cv = this.chains[p.chainIndex];
+      if (cv) {
         const u = 1 - p.t / BREAK_DUR;
-        root.visible = true;
-        root.scale.setScalar(Math.max(0.01, 1 - u));
-        root.rotation.z = u * 1.1;
-        root.rotation.x = u * 0.6;
-        root.position.y = (hasKettenhochhausModel("chain") ? 0.8 : 1.35) - u * 0.9;
-        if (p.t <= 0) root.visible = false;
+        const fly = u * u;
+        cv.left.position.x = -STREET.chainHalfSpan * 0.45 - fly * 1.8;
+        cv.right.position.x = STREET.chainHalfSpan * 0.45 + fly * 1.8;
+        cv.left.position.y = -fly * 1.2;
+        cv.right.position.y = -fly * 1.2;
+        cv.left.rotation.z = fly * 1.4;
+        cv.right.rotation.z = -fly * 1.4;
+        cv.left.rotation.x = fly * 0.6;
+        cv.right.rotation.x = -fly * 0.6;
+        if (p.t <= 0) cv.root.visible = false;
       }
       if (p.t <= 0) {
         this.startRunAfterBreak(p.chainIndex, p.won);
@@ -548,7 +597,7 @@ export class KettenhochhausApp {
       p.t = Math.max(0, p.t - dt);
       const u = 1 - p.t / RUN_DUR;
       const ease = u * u * (3 - 2 * u);
-      this.mech.position.x = p.fromX + (p.toX - p.fromX) * ease;
+      this.mech.position.z = p.fromZ + (p.toZ - p.fromZ) * ease;
       const bob = Math.sin(u * Math.PI * 4) * 0.55;
       this.legL.rotation.x = bob;
       this.legR.rotation.x = -bob;
@@ -557,7 +606,7 @@ export class KettenhochhausApp {
         this.legL.rotation.x = 0;
         this.legR.rotation.x = 0;
         this.mech.position.y = 0;
-        this.placeMechAt(p.toX);
+        this.placeMechAt(p.toZ);
         if (p.won) {
           this.beginExtinguish();
         } else {
@@ -572,10 +621,10 @@ export class KettenhochhausApp {
     if (p.kind === "extinguish") {
       p.t = Math.max(0, p.t - dt);
       const u = 1 - p.t / EXTINGUISH_DUR;
-      this.hose.position.x = STREET.hoseX + Math.sin(u * Math.PI) * 0.15;
-      this.strikeArm.rotation.z = -0.4 - u * 0.35;
+      this.hose.position.z = STREET.hoseZ + Math.sin(u * Math.PI) * 0.12;
+      this.strikeArm.rotation.x = -0.35 - u * 0.25;
       if (p.t <= 0) {
-        this.strikeArm.rotation.z = 0;
+        this.strikeArm.rotation.x = 0;
         if (this.spray) this.spray.visible = false;
         this.phase = { kind: "done" };
         this.reportWon();
@@ -596,8 +645,8 @@ export class KettenhochhausApp {
           metalness: 0,
         }),
       );
-      this.spray.position.set(STREET.buildingX - 0.55, 1.6, STREET.buildingZ + 0.5);
-      this.spray.rotation.z = Math.PI / 2.6;
+      this.spray.position.set(STREET.buildingX - 0.4, 1.6, STREET.buildingZ - 0.6);
+      this.spray.rotation.x = -Math.PI / 2.4;
       this.scene.add(this.spray);
     }
     this.spray.visible = true;

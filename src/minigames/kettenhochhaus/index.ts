@@ -25,11 +25,12 @@ export {
 export { openKettenhochhaus, isKettenhochhausOpen } from "./openKettenhochhaus";
 export { KettenhochhausApp } from "./render/KettenhochhausScene";
 export {
-  chainWorldX,
-  mechIdleX,
+  chainWorldZ,
+  mechIdleZ,
   mechRunTargetAfterHit,
   STREET,
   zonePadX,
+  zonePadZ,
 } from "./layout";
 export {
   KETTENHOCHHAUS_PROP_IDS,
