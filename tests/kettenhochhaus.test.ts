@@ -8,6 +8,7 @@ import { starsFromWrongAttempts } from "../src/logic/starRating";
 import {
   acceptedZonesFor,
   chainFromLetterPosItem,
+  chainWorldX,
   CHAIN_COUNT,
   clickZone,
   createSim,
@@ -15,8 +16,12 @@ import {
   KETTENHOCHHAUS_PROP_IDS,
   KETTENHOCHHAUS_URLS,
   MAX_LIVES,
+  mechIdleX,
+  mechRunTargetAfterHit,
   pickChainRounds,
+  STREET,
   zoneOfIndex,
+  zonePadX,
 } from "../src/minigames/kettenhochhaus";
 
 describe("kettenhochhaus letter zones", () => {
@@ -122,5 +127,45 @@ describe("kettenhochhaus tripo models", () => {
       const disk = join(process.cwd(), "public", "models", "kettenhochhaus", `${id}.glb`);
       expect(existsSync(disk), `missing ${disk}`).toBe(true);
     }
+  });
+});
+
+describe("kettenhochhaus street progression", () => {
+  it("places four chains in increasing X toward the building", () => {
+    expect(STREET.chainXs).toHaveLength(CHAIN_COUNT);
+    for (let i = 1; i < CHAIN_COUNT; i++) {
+      expect(chainWorldX(i)).toBeGreaterThan(chainWorldX(i - 1));
+    }
+    expect(STREET.buildingX).toBeGreaterThan(chainWorldX(CHAIN_COUNT - 1));
+  });
+
+  it("parks the mech before each chain and runs to the next after a hit", () => {
+    for (let i = 0; i < CHAIN_COUNT; i++) {
+      expect(mechIdleX(i)).toBeLessThan(chainWorldX(i));
+    }
+    expect(mechRunTargetAfterHit(0)).toBe(mechIdleX(1));
+    expect(mechRunTargetAfterHit(1)).toBe(mechIdleX(2));
+    expect(mechRunTargetAfterHit(2)).toBe(mechIdleX(3));
+    expect(mechRunTargetAfterHit(3)).toBe(STREET.extinguishMechX);
+    expect(STREET.extinguishMechX).toBeGreaterThan(chainWorldX(CHAIN_COUNT - 1));
+  });
+
+  it("keeps zone pads around the active chain (Anfang left, Ende right)", () => {
+    expect(zonePadX("anfang", 2)).toBeLessThan(zonePadX("mitte", 2));
+    expect(zonePadX("mitte", 2)).toBeLessThan(zonePadX("ende", 2));
+    expect(zonePadX("mitte", 2)).toBe(chainWorldX(2));
+  });
+
+  it("does not break a chain on miss (sim stays on same index)", () => {
+    const four = [
+      chainFromLetterPosItem(LETTER_POS_ITEMS.find((i) => i.display === "Haus" && i.position === "anfang")!),
+      chainFromLetterPosItem(LETTER_POS_ITEMS.find((i) => i.display === "Haus" && i.position === "mitte")!),
+      chainFromLetterPosItem(LETTER_POS_ITEMS.find((i) => i.display === "Dose" && i.position === "ende")!),
+      chainFromLetterPosItem(LETTER_POS_ITEMS.find((i) => i.display === "Rose" && i.position === "anfang")!),
+    ];
+    const state = createSim({ chains: four });
+    expect(clickZone(state, "ende").kind).toBe("miss");
+    expect(state.chainIndex).toBe(0);
+    expect(mechRunTargetAfterHit(0)).toBe(mechIdleX(1)); // run target unused on miss
   });
 });

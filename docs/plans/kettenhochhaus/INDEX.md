@@ -1,6 +1,6 @@
 # Slices: kettenhochhaus
 
-**Status:** In Arbeit (S01–S03 erledigt)  
+**Status:** Erledigt (S01–S04)  
 **Aufgabe:** Neues 3D-Minispiel: Mech läuft zum brennenden Hochhaus, muss 4 Ketten per Buchstaben-Position (Anfang/Mitte/Ende) durchschlagen, 3 Leben, danach Lösch-Animation.  
 **Datum:** 2026-09-12  
 **Zuschnitt:** vier Feature-Slices (Vertrag/Pipeline, Runtime+Regeln, Tripo-Assets, Abschluss-Animationen)  
@@ -15,7 +15,7 @@ Feature-Schritte, keine Prozess-Schritte. Fast-Path: nein (neues 3D-Minispiel + 
 | S01 | `S01-vertrag-pipeline.md` | Ownership + Tripo-Pipeline für `kettenhochhaus` | — | erledigt |
 | S02 | `S02-runtime-ketten.md` | Spielregeln, 3D-Runtime, Overlay/Pause, Station | S01 | erledigt |
 | S03 | `S03-tripo-assets.md` | Tripo-GLBs (Kette, Hochhaus, Props) verdrahten | S02 | erledigt |
-| S04 | `S04-bruch-loesch-anim.md` | Kettenbruch- + Lauf-/Lösch-Animation | S03 | offen |
+| S04 | `S04-bruch-loesch-anim.md` | Kettenbruch- + Lauf-/Lösch-Animation | S03 | erledigt |
 
 Status nur: `offen` → `in Arbeit` → `erledigt` (nach Pass + Git).
 
@@ -23,7 +23,8 @@ Status nur: `offen` → `in Arbeit` → `erledigt` (nach Pass + Git).
 
 - **Ziel:** Mech erreicht das brennende Hochhaus und löscht es, nachdem **4 Ketten** nacheinander durchschlagen sind.
 - **Pro Kette:** Ein Buchstabe aus einem Wort; Spieler klickt **Links = Anfang**, **Mitte = Mitte**, **Rechts = Ende** — wo dieser Buchstabe im Wort vorkommt.
-- **Treffer:** Mech schlägt zu → Kette bricht (Animation) → nächste Kette bzw. Finale.
+- **Treffer:** Mech schlägt zu → Kette bricht (Animation) → Mech rennt zur **nächsten** Kette entlang der Straße bzw. zum Finale.
+- **Straßen-Layout:** 4 Ketten hintereinander über die Straße; Zone-Pads (Anfang/Mitte/Ende) an der aktiven Kette.
 - **Fehlklick:** Mech verliert **1 von 3 Leben**.
 - **0 Leben:** Level startet von vorne (alle Ketten + Leben zurück).
 - **Nach 4 Ketten:** Mech rennt zum Hochhaus und löscht es (Animation) → Rätsel gelöst / WorldEffect wie andere Minispiele.
