@@ -73,13 +73,50 @@
       <canvas id="buchstabenstrasse-canvas"></canvas>
       <div id="buchstabenstrasse-footer">
         <button type="button" id="buchstabenstrasse-left" aria-label="Spur links">◀</button>
-        <p id="buchstabenstrasse-word" aria-live="polite"></p>
+        <div id="buchstabenstrasse-center">
+          <button type="button" id="buchstabenstrasse-forward" aria-label="Schneller fahren" aria-pressed="false">▲</button>
+          <p id="buchstabenstrasse-word" aria-live="polite"></p>
+        </div>
         <button type="button" id="buchstabenstrasse-right" aria-label="Spur rechts">▶</button>
       </div>
       <div id="buchstabenstrasse-success" class="hidden" role="dialog" aria-label="Erfolg">
-        <p class="success-title">Super!</p>
+        <p class="success-title">Wort geschafft!</p>
+        <p id="buchstabenstrasse-success-word" aria-live="polite"></p>
         <div id="buchstabenstrasse-stars" class="success-stars"></div>
         <button type="button" id="buchstabenstrasse-continue">Weiter</button>
+      </div>
+    </div>
+    <div id="buchstabenflieger-overlay" class="hidden">
+      <div id="buchstabenflieger-chrome">
+        <button type="button" id="buchstabenflieger-hear">Wort hören</button>
+        <p id="buchstabenflieger-prompt"></p>
+        <p id="buchstabenflieger-progress" aria-live="polite"></p>
+        <p id="buchstabenflieger-misses" aria-live="polite">Fehlversuche: 0</p>
+        <p id="buchstabenflieger-feedback" aria-live="polite"></p>
+      </div>
+      <canvas id="buchstabenflieger-canvas"></canvas>
+      <div id="buchstabenflieger-footer">
+        <div id="buchstabenflieger-radar-actions" class="buchstabenflieger-actions" role="group" aria-label="Radar">
+          <button type="button" id="buchstabenflieger-yes">Ja</button>
+          <button type="button" id="buchstabenflieger-no">Nein</button>
+        </div>
+        <div id="buchstabenflieger-lane-actions" class="buchstabenflieger-actions hidden" role="group" aria-label="Position">
+          <button type="button" data-zone="anfang">Anfang</button>
+          <button type="button" data-zone="mitte">Mitte</button>
+          <button type="button" data-zone="ende">Ende</button>
+        </div>
+        <div id="buchstabenflieger-flight-actions" class="buchstabenflieger-actions hidden">
+          <button type="button" id="buchstabenflieger-up" aria-label="Spur höher">▲</button>
+          <button type="button" id="buchstabenflieger-fire" aria-label="Schießen">Schuss</button>
+          <button type="button" id="buchstabenflieger-down" aria-label="Spur tiefer">▼</button>
+        </div>
+        <p id="buchstabenflieger-word" aria-live="polite"></p>
+      </div>
+      <div id="buchstabenflieger-success" class="hidden" role="dialog" aria-label="Erfolg">
+        <p class="success-title">Flug geschafft!</p>
+        <p id="buchstabenflieger-success-word" aria-live="polite"></p>
+        <div id="buchstabenflieger-stars" class="success-stars"></div>
+        <button type="button" id="buchstabenflieger-continue">Weiter</button>
       </div>
     </div>
     <div id="kettenhochhaus-overlay" class="hidden">

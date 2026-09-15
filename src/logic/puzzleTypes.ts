@@ -8,6 +8,7 @@ export type PuzzleType =
   | "trace"
   | "ballkanone"
   | "buchstabenstrasse"
+  | "buchstabenflieger"
   | "kettenhochhaus"
   | "letterPos"
   | "letterPick";
@@ -24,6 +25,7 @@ export type BallkanoneVariant = "static" | "track" | "peek";
 export type WorldEffect =
   | "spawn_bridge"
   | "spawn_lake_bridge"
+  | "spawn_street_crossing"
   | "spawn_rope"
   | "spawn_ladder"
   | "spawn_platform"

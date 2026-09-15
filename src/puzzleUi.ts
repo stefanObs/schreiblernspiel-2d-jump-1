@@ -78,10 +78,13 @@ export function isOverlayOpen(): boolean {
   const streetOpen = !document
     .getElementById("buchstabenstrasse-overlay")
     ?.classList.contains("hidden");
+  const fliegerOpen = !document
+    .getElementById("buchstabenflieger-overlay")
+    ?.classList.contains("hidden");
   const kettenOpen = !document
     .getElementById("kettenhochhaus-overlay")
     ?.classList.contains("hidden");
-  return Boolean(puzzleOpen || ballOpen || streetOpen || kettenOpen);
+  return Boolean(puzzleOpen || ballOpen || streetOpen || fliegerOpen || kettenOpen);
 }
 
 export function openPuzzle(puzzle: Puzzle, handlers: OverlayHandlers): void {

@@ -1,4 +1,5 @@
 import type { Puzzle, PuzzleType, WorldEffect } from "./puzzleTypes";
+import { TREEHOUSE } from "./bachbrueckeLayout";
 
 /** Categories that can be toggled in Settings. Boards keep their world positions. */
 export const PUZZLE_CATEGORIES: PuzzleType[] = [
@@ -10,13 +11,66 @@ export const PUZZLE_CATEGORIES: PuzzleType[] = [
   "letterPick",
   "ballkanone",
   "buchstabenstrasse",
+  "buchstabenflieger",
   "kettenhochhaus",
 ];
 
-/** Categories that use Holztafel boards (not world gates like buchstabenstrasse). */
-export const BOARD_CATEGORIES: PuzzleType[] = PUZZLE_CATEGORIES.filter(
-  (c) => c !== "buchstabenstrasse",
-);
+/** Textfeld-Holztafeln — remappable among themselves. Not minigame gates. */
+export const BOARD_CATEGORIES: PuzzleType[] = [
+  "word",
+  "math",
+  "transform",
+  "trace",
+  "letterPos",
+  "letterPick",
+];
+
+/** Overlay minigames — only at special world places (treehouse, street, hangar, …). */
+export const MINIGAME_CATEGORIES: PuzzleType[] = [
+  "ballkanone",
+  "buchstabenstrasse",
+  "buchstabenflieger",
+  "kettenhochhaus",
+];
+
+export function isMinigameCategory(category: PuzzleType): boolean {
+  return (MINIGAME_CATEGORIES as string[]).includes(category);
+}
+
+export function isBoardCategory(category: PuzzleType): boolean {
+  return (BOARD_CATEGORIES as string[]).includes(category);
+}
+
+/** Phaser texture key for a category’s Holztafel (fallback: generic station-sign). */
+export function signKeyForCategory(category: PuzzleType): string {
+  const map: Partial<Record<PuzzleType, string>> = {
+    word: "station-sign-word",
+    math: "station-sign-math",
+    transform: "station-sign-transform",
+    trace: "station-sign-trace",
+    letterPos: "station-sign-letter-pos",
+    letterPick: "station-sign-letter-pick",
+    ballkanone: "station-sign-ballkanone",
+    buchstabenstrasse: "station-sign-buchstabenstrasse",
+    buchstabenflieger: "station-sign",
+  };
+  return map[category] ?? "station-sign";
+}
+
+/** Public art path for a category sign (for preload). */
+export function signArtPathForCategory(category: PuzzleType): string | null {
+  const map: Partial<Record<PuzzleType, string>> = {
+    word: "art/station_sign_word.png",
+    math: "art/station_sign_math.png",
+    transform: "art/station_sign_transform.png",
+    trace: "art/station_sign_trace.png",
+    letterPos: "art/station_sign_letter_pos.png",
+    letterPick: "art/station_sign_letter_pick.png",
+    ballkanone: "art/station_sign_ballkanone.png",
+    buchstabenstrasse: "art/station_sign_buchstabenstrasse.png",
+  };
+  return map[category] ?? null;
+}
 
 export const PUZZLE_CATEGORY_LABELS: Record<PuzzleType, string> = {
   word: "Wörter",
@@ -27,6 +81,7 @@ export const PUZZLE_CATEGORY_LABELS: Record<PuzzleType, string> = {
   letterPick: "Buchstaben-Bildwahl",
   ballkanone: "Ballkanone",
   buchstabenstrasse: "Buchstabenstraße",
+  buchstabenflieger: "Buchstaben-Flieger",
   kettenhochhaus: "Kettenhochhaus",
 };
 
@@ -49,8 +104,9 @@ export type StationSlotDef = {
 
 /**
  * Boards on Bachbrücke (buchstabenstrasse is the world street gate, not a board).
- * Progression: stream → rope/treehouse → ladder heights → lake → far side.
- * Disabled categories are remapped onto other enabled types; slots stay.
+ * Progression: stream → rope/treehouse → meadow → lake → far side.
+ * Disabled *board* categories are remapped onto other enabled board types; slots stay.
+ * Minigame slots (e.g. Ballkanone in the treehouse) are omitted when their category is off.
  */
 export const STATION_SLOTS: StationSlotDef[] = [
   { id: "slot-word", category: "word", x: 620, y: 570, effect: "spawn_bridge" },
@@ -58,21 +114,15 @@ export const STATION_SLOTS: StationSlotDef[] = [
   {
     id: "slot-ballkanone",
     category: "ballkanone",
-    x: 1780,
-    y: 280,
+    x: TREEHOUSE.floor.x,
+    y: TREEHOUSE.stationY,
     effect: "none",
     elevated: true,
   },
-  { id: "slot-math", category: "math", x: 2100, y: 260, effect: "spawn_ladder", elevated: true },
+  { id: "slot-math", category: "math", x: 2100, y: 570, effect: "none" },
   { id: "slot-letter-pick", category: "letterPick", x: 2280, y: 570, effect: "spawn_lake_bridge" },
-  {
-    id: "slot-kettenhochhaus",
-    category: "kettenhochhaus",
-    x: 3600,
-    y: 570,
-    effect: "spawn_platform",
-  },
-  { id: "slot-transform", category: "transform", x: 3800, y: 570, effect: "none" },
+  { id: "slot-buchstabenflieger", category: "buchstabenflieger", x: 3980, y: 570, effect: "none" },
+  { id: "slot-transform", category: "transform", x: 4100, y: 570, effect: "none" },
   { id: "slot-trace", category: "trace", x: 4500, y: 570, effect: "none" },
 ];
 
@@ -81,6 +131,8 @@ export type EnabledCategories = Record<PuzzleType, boolean>;
 export function defaultEnabledCategories(): EnabledCategories {
   const out = {} as EnabledCategories;
   for (const c of PUZZLE_CATEGORIES) out[c] = true;
+  // Play disabled until Querkette / Axt UX is ready enough for kids.
+  out.kettenhochhaus = false;
   return out;
 }
 
@@ -141,23 +193,37 @@ export function isCategoryEnabled(
 }
 
 /**
- * Every world board stays. If a slot’s home category is off, it gets another
- * enabled type so the position still offers a puzzle.
+ * Board slots stay at fixed x/y. Disabled board categories remap onto other
+ * enabled *board* types only (never minigames). Minigame slots are dropped when off.
  */
 export function resolvedStationSlots(
   storage: Storage | null = defaultStorage(),
 ): StationSlotDef[] {
   const enabled = loadEnabledCategories(storage);
-  const enabledList = PUZZLE_CATEGORIES.filter((c) => enabled[c]);
-  if (enabledList.length === 0) return STATION_SLOTS.map((slot) => ({ ...slot }));
-
+  const enabledBoards = BOARD_CATEGORIES.filter((c) => enabled[c]);
   let fill = 0;
-  return STATION_SLOTS.map((slot) => {
-    if (enabled[slot.category]) return slot;
-    const category = enabledList[fill % enabledList.length]!;
+
+  const out: StationSlotDef[] = [];
+  for (const slot of STATION_SLOTS) {
+    if (isMinigameCategory(slot.category)) {
+      if (enabled[slot.category]) out.push({ ...slot });
+      continue;
+    }
+    if (enabled[slot.category]) {
+      out.push({ ...slot });
+      continue;
+    }
+    if (enabledBoards.length === 0) {
+      // No board types left — still keep the slot with its home category so
+      // progression positions exist; pickRandomPuzzle will no-op if empty pool.
+      out.push({ ...slot });
+      continue;
+    }
+    const category = enabledBoards[fill % enabledBoards.length]!;
     fill += 1;
-    return { ...slot, category };
-  });
+    out.push({ ...slot, category });
+  }
+  return out;
 }
 
 export function puzzlesInCategory(

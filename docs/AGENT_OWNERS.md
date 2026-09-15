@@ -8,7 +8,7 @@ Verhindert Überschneidungen zwischen Subagenten. Jeder Slice nennt **genau eine
 |-------|------|------------|
 | `comic-rettung-art` | `public/art/**` Stil-C PNG | `public/models/**`, Tripo, `src/minigames/**`, `assets/tripo-concepts/**` |
 | `tripo-3d-assets` | Concept → `tripo make` → bake → `public/models/ballkanone/**`, `public/models/kettenhochhaus/**`, `scripts/bake-*-tripo.mjs`, `.cursor/skills/tripo-3d-assets/` | Phaser-Szenen, Puzzle-UI, Sim-Regeln, `public/art/**`, `src/minigames/**` (außer Loader-URL-Hinweise im Handoff) |
-| `feature-implementer` | `src/minigames/**`, Station-Hooks, `src/logic` Puzzle-Typen, Tests | `tripo make`, Bake ausführen, neue GLBs erzeugen, Stil-C-Sprites „mitdenken“ |
+| `feature-implementer` | `src/minigames/**` (u. a. `ballkanone`, `buchstabenstrasse`, `buchstabenflieger`, `kettenhochhaus`), Station-Hooks, `src/logic` Puzzle-Typen, Tests | `tripo make`, Bake ausführen, neue GLBs erzeugen, Stil-C-Sprites „mitdenken“ |
 | `code-reviewer` / `automated-verifier` | Review / Verify | Scope erweitern, Assets regenerieren |
 | `task-slicer` | INDEX / Slices mit klaren **Nicht**-Grenzen und Art-Owner | Implementieren |
 | `feature-planner` | Slice-Plan ausbauen | Implementieren, Assets erzeugen |

@@ -318,10 +318,13 @@ html, body { margin: 0; height: 100%; background: #4DA3FF; font-family: sans-ser
 #buchstabenstrasse-prompt { margin: 0; font-size: 18px; font-weight: 600; }
 #buchstabenstrasse-footer {
   position: absolute; left: 0; right: 0; bottom: 0; z-index: 2;
-  display: flex; justify-content: center; align-items: center; gap: 16px;
+  display: flex; justify-content: center; align-items: flex-end; gap: 16px;
   padding: 18px 20px 22px;
   pointer-events: none;
   background: linear-gradient(0deg, rgba(10,16,24,0.88), transparent);
+}
+#buchstabenstrasse-center {
+  display: flex; flex-direction: column; align-items: center; gap: 8px;
 }
 #buchstabenstrasse-footer button {
   pointer-events: auto;
@@ -337,6 +340,13 @@ html, body { margin: 0; height: 100%; background: #4DA3FF; font-family: sans-ser
   box-shadow: 5px 5px 0 #1A1A1A;
   cursor: pointer;
   touch-action: manipulation;
+  user-select: none;
+}
+#buchstabenstrasse-forward.is-held,
+#buchstabenstrasse-forward[aria-pressed="true"] {
+  background: #FF8A00;
+  transform: translate(3px, 3px);
+  box-shadow: 2px 2px 0 #1A1A1A;
 }
 #buchstabenstrasse-word {
   margin: 0;
@@ -422,11 +432,112 @@ html, body { margin: 0; height: 100%; background: #4DA3FF; font-family: sans-ser
 #buchstabenstrasse-canvas { flex: 1; width: 100%; height: 100%; display: block; touch-action: none; }
 #buchstabenstrasse-success {
   position: absolute; inset: 0; display: flex; flex-direction: column;
-  align-items: center; justify-content: center; z-index: 3;
-  background: rgba(255,255,255,0.88);
+  align-items: center; justify-content: center; gap: 12px; z-index: 5;
+  background: linear-gradient(180deg, rgba(255,248,225,0.92), rgba(255,255,255,0.94));
+  pointer-events: auto;
 }
-#buchstabenstrasse-success .success-title { font-size: 40px; font-weight: 800; margin: 0 0 8px; }
+#buchstabenstrasse-success.celebrate-in {
+  animation: buchstabenstrasse-celebrate-panel 520ms ease-out;
+}
+#buchstabenstrasse-success .success-title {
+  font-size: clamp(32px, 5vw, 48px); font-weight: 800; margin: 0;
+  color: #1A1A1A;
+  text-shadow: 3px 3px 0 #FFD600;
+}
+#buchstabenstrasse-success-word {
+  margin: 0;
+  font-size: clamp(40px, 8vw, 72px);
+  font-weight: 800;
+  letter-spacing: 0.08em;
+  font-family: Georgia, "Times New Roman", serif;
+  color: #FFD600;
+  text-shadow: 0 2px 0 #1a1a1a, 4px 4px 0 rgba(0,0,0,0.25);
+  padding: 10px 28px;
+  border: 4px solid #1A1A1A;
+  border-radius: 18px;
+  background: rgba(26, 36, 48, 0.92);
+  animation: buchstabenstrasse-word-pop 700ms ease-out;
+}
 #buchstabenstrasse-continue {
+  font-size: 24px; font-weight: 800; padding: 12px 28px;
+  border: 4px solid #1A1A1A; background: #FFD600; box-shadow: 4px 4px 0 #1A1A1A; cursor: pointer;
+}
+@keyframes buchstabenstrasse-celebrate-panel {
+  0% { opacity: 0; transform: scale(1.04); }
+  100% { opacity: 1; transform: scale(1); }
+}
+@keyframes buchstabenstrasse-word-pop {
+  0% { transform: scale(0.6); opacity: 0; }
+  55% { transform: scale(1.12); opacity: 1; }
+  100% { transform: scale(1); opacity: 1; }
+}
+#buchstabenflieger-overlay {
+  position: fixed; inset: 0; z-index: 22; display: flex; flex-direction: column;
+  background: #4da3ff;
+}
+#buchstabenflieger-overlay.hidden { display: none; }
+#buchstabenflieger-chrome {
+  position: absolute; top: 0; left: 0; right: 0; z-index: 2;
+  display: flex; flex-direction: column; gap: 6px; padding: 12px 16px;
+  pointer-events: none;
+}
+#buchstabenflieger-chrome button,
+#buchstabenflieger-success button,
+#buchstabenflieger-footer button { pointer-events: auto; }
+#buchstabenflieger-hear {
+  align-self: flex-start; font-size: 16px; font-weight: 700; padding: 8px 14px;
+  border: 3px solid #1A1A1A; background: #fff; box-shadow: 3px 3px 0 #1A1A1A; cursor: pointer;
+}
+#buchstabenflieger-prompt { margin: 0; font-size: 18px; font-weight: 600; color: #1A1A1A; text-shadow: 0 1px 0 rgba(255,255,255,0.6); }
+#buchstabenflieger-progress { margin: 0; font-size: 16px; font-weight: 700; color: #1A1A1A; }
+#buchstabenflieger-misses { margin: 0; font-size: 15px; font-weight: 700; color: #1A1A1A; }
+#buchstabenflieger-misses.has-misses { color: #c62828; }
+#buchstabenflieger-feedback { margin: 0; min-height: 1.2em; font-size: 18px; font-weight: 800; }
+#buchstabenflieger-feedback.feedback-hit { color: #1b5e20; }
+#buchstabenflieger-feedback.feedback-miss { color: #b71c1c; }
+#buchstabenflieger-overlay.miss-flash::after {
+  content: ""; position: absolute; inset: 0; pointer-events: none; z-index: 3;
+  animation: buchstabenstrasse-overlay-flash 700ms ease-out;
+  background: rgba(229, 57, 53, 0.28);
+}
+#buchstabenflieger-canvas { flex: 1; width: 100%; height: 100%; display: block; touch-action: none; }
+#buchstabenflieger-footer {
+  position: absolute; bottom: 0; left: 0; right: 0; z-index: 2;
+  display: flex; flex-direction: column; align-items: center; gap: 10px;
+  padding: 12px 16px 20px; pointer-events: none;
+}
+.buchstabenflieger-actions {
+  display: flex; gap: 12px; flex-wrap: wrap; justify-content: center;
+}
+.buchstabenflieger-actions.hidden { display: none; }
+#buchstabenflieger-footer button {
+  font-size: 20px; font-weight: 800; padding: 12px 22px;
+  border: 4px solid #1A1A1A; background: #FFD600; box-shadow: 4px 4px 0 #1A1A1A; cursor: pointer;
+  min-width: 72px;
+}
+#buchstabenflieger-fire { background: #4DA3FF; color: #fff; min-width: 110px; }
+#buchstabenflieger-word {
+  margin: 0; font-size: 22px; font-weight: 800; color: #1A1A1A;
+  text-shadow: 0 1px 0 rgba(255,255,255,0.7);
+}
+#buchstabenflieger-success {
+  position: absolute; inset: 0; display: flex; flex-direction: column;
+  align-items: center; justify-content: center; gap: 12px; z-index: 5;
+  background: linear-gradient(180deg, rgba(255,248,225,0.92), rgba(255,255,255,0.94));
+  pointer-events: auto;
+}
+#buchstabenflieger-success.celebrate-in {
+  animation: buchstabenstrasse-celebrate-panel 520ms ease-out;
+}
+#buchstabenflieger-success .success-title {
+  font-size: clamp(32px, 5vw, 48px); font-weight: 800; margin: 0;
+  color: #1A1A1A; text-shadow: 3px 3px 0 #FFD600;
+}
+#buchstabenflieger-success-word {
+  margin: 0; font-size: clamp(36px, 7vw, 64px); font-weight: 800;
+  color: #FFD600; text-shadow: 0 2px 0 #1a1a1a;
+}
+#buchstabenflieger-continue {
   font-size: 24px; font-weight: 800; padding: 12px 28px;
   border: 4px solid #1A1A1A; background: #FFD600; box-shadow: 4px 4px 0 #1A1A1A; cursor: pointer;
 }

@@ -3,18 +3,26 @@ import { freeTransformPuzzle, mergedPuzzles } from "../logic/puzzleStore";
 import type { Puzzle, WorldEffect } from "../logic/puzzleTypes";
 import {
   CATEGORIES_CHANGED_EVENT,
+  BOARD_CATEGORIES,
+  MINIGAME_CATEGORIES,
+  isCategoryEnabled,
   resolvedStationSlots,
   pickRandomPuzzle,
   puzzleForSlot,
+  signArtPathForCategory,
+  signKeyForCategory,
   type StationSlotDef,
 } from "../logic/puzzleCategories";
 import {
   RESPAWN,
   canClimb,
   canJump,
+  checkpointAtStation,
   climbVelocityY,
   combineMove,
   CLIMB_GRAB_DX,
+  CLIMB_LATCH_MS,
+  CLIMB_REGRAB_LOCK_MS,
   jumpVelocity,
   moveSpeed,
   type CharacterId,
@@ -30,6 +38,7 @@ import {
   type SpawnKind,
 } from "../logic/animState";
 import {
+  BRIDGE_PROP,
   CHECKPOINT_AFTER_X,
   GOAL_X,
   LAYOUT_SCALE,
@@ -37,10 +46,14 @@ import {
   SPAWN_PARTS,
   STREET_CROSSING,
   TREEHOUSE,
+  WALKABLE_HILLS,
   WATER_GAPS,
   WORLD,
+  hillWalkY,
   spawnPartsForEffect,
+  treehouseDeckTop,
   u,
+  worldTop,
   type SpawnPartDef,
 } from "../logic/bachbrueckeLayout";
 import { MECH_ART, MECH_CHARS, alternateShape, artPublicPath, characterDisplayName, shapeDisplayName, textureFor } from "../logic/mechCatalog";
@@ -50,6 +63,7 @@ import { parsePuzzleQuery } from "../logic/puzzleQuery";
 import { isOverlayOpen, openPuzzle } from "../puzzleUi";
 import { openBallkanone } from "../minigames/ballkanone";
 import { openBuchstabenstrasse } from "../minigames/buchstabenstrasse";
+import { openBuchstabenflieger } from "../minigames/buchstabenflieger";
 import { openKettenhochhaus } from "../minigames/kettenhochhaus";
 import { unlockSpeech } from "../logic/speech";
 
@@ -69,6 +83,9 @@ type PartRuntime = {
 
 const W = u(WORLD.width);
 const H = u(WORLD.height);
+/** Top of scrollable world (negative = sky above the old y=0 band). */
+const WORLD_TOP = u(worldTop());
+const WORLD_H = H - WORLD_TOP;
 const GROUND = u(WORLD.groundY);
 /** Invisible collider top — a bit below the drawn grass edge so boots sit in the turf. */
 const WALK_Y = GROUND + u(12);
@@ -89,6 +106,11 @@ export class BachbrueckeScene extends Phaser.Scene {
   private grounded = false;
   private climbing = false;
   private climbAnchorX = 0;
+  private climbSensor: Phaser.GameObjects.Rectangle | null = null;
+  /** After leaving a rope/ladder, ignore grab briefly so the mech can walk/jump away. */
+  private climbLockUntil = 0;
+  /** After grabbing, stay hanging until this time — no jump/walk-off yet. */
+  private climbLatchUntil = 0;
   private solved = new Set<string>();
   private stations: Station[] = [];
   private activeSlotId: string | null = null;
@@ -96,6 +118,7 @@ export class BachbrueckeScene extends Phaser.Scene {
   private stationViews: Phaser.GameObjects.Image[] = [];
   private streetCrossingDone = false;
   private pendingStreetCrossing = false;
+  private streetSign: Phaser.GameObjects.Image | null = null;
   private onCategoriesChanged = (): void => {
     this.rebuildStations();
   };
@@ -118,6 +141,8 @@ export class BachbrueckeScene extends Phaser.Scene {
     s: Phaser.Input.Keyboard.Key;
   };
   private checkpoint = { ...RESPAWN };
+  /** Once a minigame sets the checkpoint, the early X advance must not overwrite it. */
+  private checkpointFromSolve = false;
 
   constructor() {
     super("bachbruecke");
@@ -137,6 +162,10 @@ export class BachbrueckeScene extends Phaser.Scene {
     this.load.image("prop-treehouse", "art/prop_treehouse.png");
     this.load.image("prop-hochhaus", "art/prop_hochhaus.png");
     this.load.image("station-sign", "art/station_sign.png");
+    for (const category of [...BOARD_CATEGORIES, ...MINIGAME_CATEGORIES]) {
+      const path = signArtPathForCategory(category);
+      if (path) this.load.image(signKeyForCategory(category), path);
+    }
     this.load.image("prop-tree", "art/prop_tree.png");
     this.load.image("prop-house", "art/prop_house.png");
     this.load.image("prop-far-ridge", "art/prop_far_ridge.png");
@@ -145,11 +174,12 @@ export class BachbrueckeScene extends Phaser.Scene {
   }
 
   create(): void {
-    this.cameras.main.setBounds(0, 0, W, H);
-    this.physics.world.setBounds(0, 0, W, H);
+    this.cameras.main.setBounds(0, WORLD_TOP, W, WORLD_H);
+    this.physics.world.setBounds(0, WORLD_TOP, W, WORLD_H);
     this.createAnims();
     this.drawBackdrop();
     this.placeFarRidge();
+    this.placeHills();
     this.placeSkyline();
     this.placeClouds();
     this.placeWater();
@@ -200,7 +230,8 @@ export class BachbrueckeScene extends Phaser.Scene {
         part.solid = solid;
       }
 
-      if (!("withParent" in def && def.withParent)) {
+      // Street deck is invisible (road already drawn); bridges/ropes get props.
+      if (def.kind !== "street" && !("withParent" in def && def.withParent)) {
         part.view = this.makePropView(def);
       }
       this.partsById.set(def.id, part);
@@ -216,8 +247,11 @@ export class BachbrueckeScene extends Phaser.Scene {
       this.grounded = Boolean(this.player.body?.blocked.down || this.player.body?.touching.down);
     });
 
-    this.cameras.main.startFollow(this.player, true, 0.12, 0.12);
+    this.cameras.main.startFollow(this.player, true, 0.12, 0.14);
+    // Bias follow slightly upward so climbing into the treehouse reads clearly.
+    this.cameras.main.setFollowOffset(0, u(40));
     this.placeStations();
+    this.placeStreetSign();
     const plateShadow = this.add.rectangle(u(256), u(64), u(460), u(72), 0x1a1a1a);
     plateShadow.setScrollFactor(0).setDepth(20);
     const plate = this.add.rectangle(u(250), u(58), u(460), u(72), 0xffffff).setStrokeStyle(4, 0x1a1a1a);
@@ -264,24 +298,43 @@ export class BachbrueckeScene extends Phaser.Scene {
     return u(layoutY);
   }
 
+  /** Follow smooth hill profile so walking rises/falls without jumping. */
+  private applyHillSurface(): void {
+    if (this.climbing || this.transforming) return;
+    const xUnscaled = this.player.x / LAYOUT_SCALE;
+    const walkUnscaled = hillWalkY(xUnscaled);
+    if (walkUnscaled == null) return;
+    const surface = u(walkUnscaled);
+    const body = this.player.body as Phaser.Physics.Arcade.Body;
+    // Only stick while falling/standing — leave upward jumps free.
+    if (body.velocity.y < 0) return;
+    if (this.player.y < surface - u(10)) return;
+    this.player.y = surface;
+    this.player.setVelocityY(0);
+    this.grounded = true;
+  }
+
   private makePropView(def: SpawnPartDef): Phaser.GameObjects.Image {
     const cx = u(def.x);
     if (def.kind === "bridge") {
+      // Anchor the measured deck top on WALK_Y (= solid top / bank walk line).
+      const displayH = u(Math.round(def.w * BRIDGE_PROP.aspect));
       return this.add
         .image(cx, WALK_Y, "prop-bridge")
-        .setOrigin(0.5, 0.42)
-        .setDisplaySize(u(def.w), u(Math.round(def.h * 1.25)))
+        .setOrigin(0.5, BRIDGE_PROP.deckFromTop)
+        .setDisplaySize(u(def.w), displayH)
         .setVisible(false)
         .setDepth(6);
     }
     if (def.kind === "rope") {
       const ropeH = u(def.h);
+      // Top of rope = underside of the treehouse deck.
       return this.add
         .image(cx, u(def.y) - ropeH / 2, "prop-rope-world")
         .setOrigin(0.5, 0)
         .setDisplaySize(u(14), ropeH)
         .setVisible(false)
-        .setDepth(6);
+        .setDepth(5);
     }
     if (def.kind === "ladder") {
       return this.add
@@ -345,6 +398,7 @@ export class BachbrueckeScene extends Phaser.Scene {
   private tryOpenStreetCrossing(): void {
     if (this.streetCrossingDone || this.pendingStreetCrossing) return;
     if (this.worldPaused || isOverlayOpen() || this.transforming || this.climbing) return;
+    if (!isCategoryEnabled("buchstabenstrasse")) return;
     const tx = u(STREET_CROSSING.triggerX);
     const half = u(STREET_CROSSING.triggerW) / 2;
     if (Math.abs(this.player.x - tx) > half) return;
@@ -382,9 +436,9 @@ export class BachbrueckeScene extends Phaser.Scene {
   private drawBackdrop(): void {
     const g = this.add.graphics().setDepth(0);
     g.fillStyle(0x4da3ff, 1);
-    g.fillRect(0, 0, W, H);
+    g.fillRect(0, WORLD_TOP, W, WORLD_H);
     g.fillStyle(0x6bb5ff, 1);
-    g.fillRect(0, 0, W, u(170));
+    g.fillRect(0, WORLD_TOP, W, u(170) - WORLD_TOP);
 
     for (const gap of WATER_GAPS) {
       if (gap.kind === "stream") this.drawStream(g, gap.x0, gap.x1);
@@ -401,6 +455,72 @@ export class BachbrueckeScene extends Phaser.Scene {
         if (!inGap) this.drawGrassBank(g, u(cursor), u(end - cursor));
       }
       cursor = end;
+    }
+  }
+
+  /**
+   * Draw grassy hill mounds above the far ridge (depth 2) so they stay visible,
+   * following the same sine profile as hillWalkY.
+   */
+  private placeHills(): void {
+    const g = this.add.graphics().setDepth(2);
+    for (const hill of WALKABLE_HILLS) {
+      const samples = 40;
+      const span = hill.x1 - hill.x0;
+      const crest: { x: number; y: number }[] = [];
+      for (let i = 0; i <= samples; i++) {
+        const x0 = hill.x0 + (span * i) / samples;
+        const walk = hillWalkY(x0) ?? WORLD.groundY + 12;
+        // Drawn grass edge sits u(12) above the walk/feet line.
+        crest.push({ x: u(x0), y: u(walk) - u(12) });
+      }
+      const left = crest[0]!;
+      const right = crest[crest.length - 1]!;
+
+      g.fillStyle(0x2faa48, 1);
+      g.beginPath();
+      g.moveTo(left.x, GROUND + u(40));
+      g.lineTo(left.x, left.y);
+      for (let i = 1; i < crest.length; i++) g.lineTo(crest[i]!.x, crest[i]!.y);
+      g.lineTo(right.x, GROUND + u(40));
+      g.closePath();
+      g.fillPath();
+
+      g.fillStyle(0x3dcc5a, 1);
+      g.beginPath();
+      g.moveTo(left.x, GROUND + u(8));
+      g.lineTo(left.x, left.y);
+      for (let i = 1; i < crest.length; i++) g.lineTo(crest[i]!.x, crest[i]!.y);
+      g.lineTo(right.x, GROUND + u(8));
+      g.closePath();
+      g.fillPath();
+
+      g.fillStyle(0x7af08a, 1);
+      g.beginPath();
+      const mid = Math.floor(crest.length / 2);
+      g.moveTo(crest[Math.floor(mid * 0.55)]!.x, crest[Math.floor(mid * 0.55)]!.y + u(18));
+      for (let i = Math.floor(mid * 0.55); i <= Math.ceil(mid * 1.45); i++) {
+        g.lineTo(crest[i]!.x, crest[i]!.y + u(6));
+      }
+      g.lineTo(crest[Math.ceil(mid * 1.45)]!.x, crest[Math.ceil(mid * 1.45)]!.y + u(28));
+      g.closePath();
+      g.fillPath();
+
+      g.fillStyle(0x2e9a44, 1);
+      for (let i = 2; i < crest.length - 2; i += 3) {
+        const p = crest[i]!;
+        g.fillTriangle(p.x, p.y, p.x + u(5), p.y - u(12), p.x + u(10), p.y);
+      }
+
+      // Hide the flat meadow edge under the mound so only one continuous contour remains.
+      g.fillStyle(0x3dcc5a, 1);
+      g.fillRect(left.x, GROUND - u(3), right.x - left.x, u(7));
+
+      // Same weight/color as drawGrassBank's top edge (u(5) / #1A1A1A).
+      g.lineStyle(u(5), 0x1a1a1a, 1);
+      for (let i = 0; i < crest.length - 1; i++) {
+        g.lineBetween(crest[i]!.x, crest[i]!.y, crest[i + 1]!.x, crest[i + 1]!.y);
+      }
     }
   }
 
@@ -445,9 +565,10 @@ export class BachbrueckeScene extends Phaser.Scene {
   }
 
   private placeTreehouse(): void {
+    // Sink trunk into the turf so roots read as planted, not floating.
     this.add
-      .image(u(TREEHOUSE.propX), u(TREEHOUSE.propY), "prop-treehouse")
-      .setOrigin(0.5, 0.55)
+      .image(u(TREEHOUSE.propX), PROP_FEET_Y + u(TREEHOUSE.plantSink), "prop-treehouse")
+      .setOrigin(0.5, 1)
       .setDisplaySize(u(TREEHOUSE.propW), u(TREEHOUSE.propH))
       .setDepth(1);
   }
@@ -739,13 +860,12 @@ export class BachbrueckeScene extends Phaser.Scene {
       [320, "prop-tree", 145, 172],
       [1180, "prop-tree", 158, 185],
       [1320, "prop-house", 130, 110],
-      [1880, "prop-tree", 132, 158],
       [2200, "prop-house", 150, 125],
       [2980, "prop-tree", 142, 168],
-      [3600, "prop-house", 140, 118],
-      [3900, "prop-tree", 150, 178],
-      [4300, "prop-house", 145, 122],
-      [4700, "prop-tree", 148, 172],
+      [4000, "prop-house", 140, 118],
+      [4300, "prop-tree", 150, 178],
+      [4700, "prop-house", 145, 122],
+      [5000, "prop-tree", 148, 172],
     ] as const;
     for (const [i, [x0, key, w0, h0]] of deco.entries()) {
       if (this.inGapUnscaled(x0)) continue;
@@ -840,6 +960,7 @@ export class BachbrueckeScene extends Phaser.Scene {
     if (def.kind === "bridge") return "bridge";
     if (def.kind === "rope") return "rope";
     if (def.kind === "ladder") return "ladder";
+    if (def.kind === "street") return "platform";
     return "platform";
   }
 
@@ -883,21 +1004,42 @@ export class BachbrueckeScene extends Phaser.Scene {
     }
   }
 
-  private enterClimb(anchorX: number): void {
+  private enterClimb(anchorX: number, sensor: Phaser.GameObjects.Rectangle): void {
     this.climbing = true;
     this.climbAnchorX = anchorX;
+    this.climbSensor = sensor;
+    this.climbLatchUntil = this.time.now + CLIMB_LATCH_MS;
     const body = this.player.body as Phaser.Physics.Arcade.Body;
     body.allowGravity = false;
+    // Platforms must not block vertical travel along the rope/ladder.
+    body.checkCollision.none = true;
     this.player.setVelocity(0, 0);
     this.player.x = anchorX;
   }
 
-  private exitClimb(hop: boolean): void {
+  /**
+   * Leave rope/ladder. `dir` pushes horizontally so the mech clears the grab zone;
+   * `hop` adds an upward jump. Always sets a short re-grab lock.
+   */
+  private exitClimb(hop: boolean, dir: -1 | 0 | 1 = 0): void {
     if (!this.climbing) return;
     this.climbing = false;
+    this.climbSensor = null;
+    this.climbLatchUntil = 0;
+    this.climbLockUntil = this.time.now + CLIMB_REGRAB_LOCK_MS;
     const body = this.player.body as Phaser.Physics.Arcade.Body;
     body.allowGravity = true;
+    body.checkCollision.none = false;
+    if (dir !== 0) {
+      this.player.x = this.climbAnchorX + dir * u(40);
+      this.player.setFlipX(dir < 0);
+      this.player.setVelocityX(dir * moveSpeed("mech"));
+    }
     if (hop) this.player.setVelocityY(CLIMB_DETACH_VY);
+  }
+
+  private climbLatched(): boolean {
+    return this.climbing && this.time.now < this.climbLatchUntil;
   }
 
   private climbSensorActive(part: PartRuntime): boolean {
@@ -905,8 +1047,31 @@ export class BachbrueckeScene extends Phaser.Scene {
     return (part.climb.body as Phaser.Physics.Arcade.StaticBody).enable;
   }
 
+  private clampClimbToSensor(): void {
+    if (!this.climbSensor) return;
+    const body = this.climbSensor.body as Phaser.Physics.Arcade.StaticBody;
+    // Feet stay inside the climb span (top = deck, bottom = meadow grab).
+    const minY = body.top + u(4);
+    const maxY = body.bottom - u(4);
+    if (this.player.y < minY) {
+      this.player.y = minY;
+      this.player.setVelocityY(0);
+    } else if (this.player.y > maxY) {
+      this.player.y = maxY;
+      this.player.setVelocityY(0);
+    }
+  }
+
+  /** True when feet are at the top of the current climb sensor (deck height). */
+  private atClimbTop(): boolean {
+    if (!this.climbSensor) return false;
+    const body = this.climbSensor.body as Phaser.Physics.Arcade.StaticBody;
+    return this.player.y <= body.top + u(16);
+  }
+
   private tryGrabClimb(): void {
     if (this.climbing || !canClimb(this.shape, this.worldPaused) || this.transforming) return;
+    if (this.time.now < this.climbLockUntil) return;
     for (const part of this.partsById.values()) {
       if (!part.climb || !this.climbSensorActive(part)) continue;
       const sensor = part.climb;
@@ -914,8 +1079,9 @@ export class BachbrueckeScene extends Phaser.Scene {
       if (Math.abs(this.player.x - sensor.x) > CLIMB_GRAB_DX) continue;
       const feet = this.player.y;
       const head = this.player.y - this.player.displayHeight;
-      if (feet < body.top - u(24) || head > body.bottom + u(24)) continue;
-      this.enterClimb(sensor.x);
+      // Generous vertical band — grab while jumping past the rope.
+      if (feet < body.top - u(48) || head > body.bottom + u(48)) continue;
+      this.enterClimb(sensor.x, sensor);
       return;
     }
   }
@@ -925,18 +1091,36 @@ export class BachbrueckeScene extends Phaser.Scene {
     this.stationViews = [];
     for (const slot of resolvedStationSlots()) {
       const x = u(slot.x);
-      const y = slot.elevated ? u(slot.y) : PROP_FEET_Y - u(50);
+      // slot.y for elevated boards is feet Y on that platform (e.g. treehouse deck).
+      const feetY = slot.elevated ? u(slot.y) : PROP_FEET_Y;
+      const y = feetY - u(50);
       const station: Station = { ...slot, x, y };
       this.stations.push(station);
-      const feetY = y + u(50); // trigger sits above feet; wooden signs stand on the walk surface
+      const tex = signKeyForCategory(slot.category);
+      const key = this.textures.exists(tex) ? tex : "station-sign";
       const sign = this.add
-        .image(x, feetY, "station-sign")
+        .image(x, feetY, key)
         .setOrigin(0.5, 1)
         .setDisplaySize(u(78), u(110))
-        .setDepth(2);
+        .setDepth(7);
       if (this.solved.has(slot.id)) sign.setAlpha(0.35);
       this.stationViews.push(sign);
     }
+  }
+
+  /** Visual cue for the Buchstabenstraße gate (not a random board slot). */
+  private placeStreetSign(): void {
+    this.streetSign?.destroy();
+    this.streetSign = null;
+    if (!isCategoryEnabled("buchstabenstrasse")) return;
+    const tex = signKeyForCategory("buchstabenstrasse");
+    const key = this.textures.exists(tex) ? tex : "station-sign";
+    this.streetSign = this.add
+      .image(u(STREET_CROSSING.signX), PROP_FEET_Y, key)
+      .setOrigin(0.5, 1)
+      .setDisplaySize(u(78), u(110))
+      .setDepth(7);
+    if (this.streetCrossingDone) this.streetSign.setAlpha(0.35);
   }
 
   /** Rebuild boards when Settings toggles categories (keeps solved state). */
@@ -948,6 +1132,7 @@ export class BachbrueckeScene extends Phaser.Scene {
     this.stationViews = [];
     this.stations = [];
     this.placeStations();
+    this.placeStreetSign();
   }
 
   private wireHud(): void {
@@ -1045,21 +1230,35 @@ export class BachbrueckeScene extends Phaser.Scene {
     const move = combineMove(this.cursors, this.keyboardMove());
 
     if (this.climbing) {
-      this.player.x = this.climbAnchorX;
+      const anchorX = this.climbAnchorX;
+      this.player.x = anchorX;
       this.player.setVelocityX(0);
-      if (move.jump) {
-        this.exitClimb(true);
+      const keyUp = Boolean(this.keys && (this.keys.up.isDown || this.keys.w.isDown));
+      const keyDown = Boolean(this.keys && (this.keys.down.isDown || this.keys.s.isDown));
+      const keySpace = Boolean(this.keys?.space.isDown);
+      const latched = this.climbLatched();
+      // While latched: hang/climb only — no walk-off or jump-off yet.
+      if (!latched && (move.left || move.right)) {
+        const dir: -1 | 1 = move.left && !move.right ? -1 : 1;
+        this.exitClimb(false, dir);
+      } else if (!latched && keySpace && !keyUp) {
+        this.exitClimb(true, 0);
         this.playJump();
       } else {
-        this.player.setVelocityY(
-          climbVelocityY({ up: Boolean(move.up), down: Boolean(move.down), jump: false }),
-        );
-        // Soft detach if player pushes away horizontally.
-        if ((move.left || move.right) && !move.up && !move.down) {
-          this.exitClimb(false);
+        // Touch jump-pad / W / ↑ = climb up; S / ↓ = climb down.
+        const climbUp = keyUp || this.cursors.jump;
+        const climbDown = keyDown;
+        this.player.setVelocityY(climbVelocityY({ up: climbUp, down: climbDown, jump: false }));
+        this.clampClimbToSensor();
+        // Reaching the top plants the mech on the treehouse deck (allowed during latch).
+        if (this.atClimbTop() && !climbDown) {
+          this.exitClimb(false, 0);
+          this.player.y = u(treehouseDeckTop());
+          this.player.setVelocity(0, 0);
         }
       }
     } else {
+      this.applyHillSurface();
       const speed = moveSpeed(this.shape);
       if (move.left && !move.right) {
         this.player.setVelocityX(-speed);
@@ -1075,16 +1274,16 @@ export class BachbrueckeScene extends Phaser.Scene {
         const jumpShape: ShapeId = this.shape === "auto" ? "mech" : this.shape;
         this.player.setVelocityY(jumpVelocity(jumpShape));
         this.playJump();
-      } else {
-        this.tryGrabClimb();
       }
+      // Grab in air or on ground — including while holding jump toward the rope.
+      this.tryGrabClimb();
     }
 
     if (!this.wasGrounded && this.grounded) this.playLand();
     this.wasGrounded = this.grounded;
     this.applyPose(time, false);
 
-    if (this.player.x > u(CHECKPOINT_AFTER_X)) {
+    if (!this.checkpointFromSolve && this.player.x > u(CHECKPOINT_AFTER_X)) {
       this.checkpoint = { x: u(CHECKPOINT_AFTER_X + 20), y: RESPAWN.y };
     }
 
@@ -1227,6 +1426,13 @@ export class BachbrueckeScene extends Phaser.Scene {
       });
       return;
     }
+    if (puzzle.type === "buchstabenflieger") {
+      openBuchstabenflieger(puzzle, {
+        onSolved: (p) => this.applyEffect(p),
+        character: this.character,
+      });
+      return;
+    }
     if (puzzle.type === "kettenhochhaus") {
       openKettenhochhaus(puzzle, {
         onSolved: (p) => this.applyEffect(p),
@@ -1290,6 +1496,14 @@ export class BachbrueckeScene extends Phaser.Scene {
       this.exitClimb(false);
       this.player.setPosition(u(STREET_CROSSING.exitX), STREET_CROSSING.exitY);
       this.player.setVelocity(0, 0);
+      this.setCheckpoint(u(STREET_CROSSING.exitX), STREET_CROSSING.exitY);
+      if (this.streetSign) {
+        this.tweens.killTweensOf(this.streetSign);
+        this.tweens.add({ targets: this.streetSign, alpha: 0.35, duration: 220 });
+      }
+    } else if (slotId) {
+      const station = this.stations.find((s) => s.id === slotId);
+      if (station) this.setCheckpointFromStation(station);
     }
 
     switch (puzzle.effect) {
@@ -1298,6 +1512,7 @@ export class BachbrueckeScene extends Phaser.Scene {
       case "spawn_ladder":
       case "spawn_platform":
       case "spawn_lake_bridge":
+      case "spawn_street_crossing":
         this.revealEffect(puzzle.effect);
         break;
       case "transform_auto":
@@ -1321,6 +1536,19 @@ export class BachbrueckeScene extends Phaser.Scene {
     this.activeSlotId = null;
     this.worldPaused = false;
     this.physics.world.resume();
+  }
+
+  /** Soft-respawn target after falling — last cleared minigame (or early bank). */
+  private setCheckpoint(x: number, y: number): void {
+    this.checkpoint = checkpointAtStation(x, y, 0);
+    this.checkpointFromSolve = true;
+  }
+
+  private setCheckpointFromStation(station: Station): void {
+    // Elevated boards use station.y = feetY - u(50); ground boards use walk Y.
+    const feetY = station.elevated ? station.y + u(50) : RESPAWN.y;
+    this.checkpoint = checkpointAtStation(station.x, feetY, u(60));
+    this.checkpointFromSolve = true;
   }
 
   /** Short celebration burst at the player after a puzzle is solved. */

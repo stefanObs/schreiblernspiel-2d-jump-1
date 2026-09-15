@@ -25,6 +25,7 @@ const TYPE_LABEL: Record<string, string> = {
   trace: "Zeichnen",
   ballkanone: "Ballkanone",
   buchstabenstrasse: "Buchstabenstraße",
+  buchstabenflieger: "Buchstaben-Flieger",
   kettenhochhaus: "Kettenhochhaus",
   letterPos: "Position",
   letterPick: "Bildwahl",
@@ -33,7 +34,7 @@ const TYPE_LABEL: Record<string, string> = {
 const MINIGAME_TYPES = new Set<Puzzle["type"]>([
   "ballkanone",
   "buchstabenstrasse",
-  "kettenhochhaus",
+  "buchstabenflieger",
 ]);
 
 export function isTransformDebugPuzzle(p: Puzzle): boolean {

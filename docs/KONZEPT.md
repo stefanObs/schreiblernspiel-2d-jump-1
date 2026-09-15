@@ -6,7 +6,7 @@ Kindgerechtes Browser-Spiel für die **1. Klasse**: Jump & Run mit Schreib-, Rec
 
 **Zielgruppe:** Primarschule, ca. 1. Klasse · **Plattform:** Browser · **Eingabe:** Touch + Pen (kein Pflicht-Gamepad)
 
-**Entwicklung:** [`docs/ENTWICKLUNGSABLAUF.md`](ENTWICKLUNGSABLAUF.md). Default = **Parent-Fast-Path** (eine Runde) für ein klares Slice/Docs/Hotfix; Subagenten nur bei mehreren Slices oder nicht-trivialer Spiel-Logik. Tests headless/automatisiert; Surface/Pen nur auf Anforderung. Version = Laufnummer (`version.txt` / Tag `n<N>`), gesetzt von GitHub Actions — nicht im Agent-Ablauf. Im Plan-Modus bei Unklarheit **immer nachfragen**, nicht raten.
+**Entwicklung:** [`docs/ENTWICKLUNGSABLAUF.md`](ENTWICKLUNGSABLAUF.md) · Agent-Ownership [`docs/AGENT_OWNERS.md`](AGENT_OWNERS.md). Default = **Parent-Fast-Path** (eine Runde) für ein klares Slice/Docs/Hotfix; Subagenten nur bei mehreren Slices oder nicht-trivialer Spiel-Logik. Tests headless/automatisiert; Surface/Pen nur auf Anforderung. Version = Laufnummer (`version.txt` / Tag `n<N>`), gesetzt von GitHub Actions — nicht im Agent-Ablauf. Im Plan-Modus bei Unklarheit **immer nachfragen**, nicht raten.
 
 ---
 
@@ -28,10 +28,11 @@ Beispiele:
 
 ## 2. Look & Feel
 
-- **Art-Style:** Stil C aus *transforming-rescue-mechs* — dicke Konturen (`#1A1A1A`), flache Cel-Farben, kinderserienhaft
+- **Art-Style (Hauptwelt):** Stil C aus *transforming-rescue-mechs* — dicke Konturen (`#1A1A1A`), flache Cel-Farben, kinderserienhaft
 - **Perspektive:** 2D Side-View Jump & Run (nicht isometrisch)
 - **Welt:** Comic-Rettungsmilieu (Bach, Brücke, Schule, Badi, Baustelle), freundlich, nie gruselig
 - **Palette (Orientierung):** Himmel `#4DA3FF`, Gras `#3DCC5A`; Bolt Gelb, Marina Türkis, Rush Rot
+- **Minispiele (3D):** Ballkanone nutzt bewusst einen **realistischen** Stil (PBR/Tripo-GLBs: Kanone, Bälle, Hindernisse, Bäume, Laternen, Büsche, Steine) — **nicht** Stil-C-Comic und nicht Asphalt-Comic-Toon. Die 2D-Hauptwelt bleibt Stil C; die Inseln sind klar getrennt (siehe [`AGENT_OWNERS.md`](AGENT_OWNERS.md)).
 
 | Mech   | Farbe   | Stärken im Jump & Run                          |
 |--------|---------|------------------------------------------------|
@@ -67,13 +68,15 @@ Beim Schreiben und Rechnen **pausiert das Spiel vollständig**:
 - Mech bleibt sichtbar in Wartepose
 - Weiterlaufen erst nach erfolgreicher Lösung (oder erlaubtem Abbrechen)
 
-Gilt für: Wort-Magie, Mathe, Transform-Kommandos.
+Gilt für: Wort-Magie, Mathe, Transform-Kommandos, **Minispiele** (Ballkanone, Buchstabenstraße, …).
 
-Nachzeichnen: Pause oder starke Zeitlupe — je nachdem, ob Zeichnen auf der laufenden Welt stört. Textfeld-Rätsel immer **harte Pause**.
+Nachzeichnen: Pause oder starke Zeitlupe — je nachdem, ob Zeichnen auf der laufenden Welt stört. Textfeld-Rätsel und Minispiel-Overlays immer **harte Pause**.
 
 ### 3.4 Spielmodi (Settings)
 
 Das Spiel hat **verschiedene Schreib-Modi**, die in den **Settings** wählbar sind. Der zuletzt gewählte Modus wird **im Browser gespeichert** (z. B. `localStorage`). **Default:** der einfachste Modus (**Buchstaben lernen**).
+
+Zusätzlich lassen sich in den Settings die **Rätsel-Kategorien** einzeln ein- und ausschalten (Wörter, Mathe, Transformieren, Zeichnen, Buchstaben-Position, Buchstaben-Bildwahl, Ballkanone, Buchstabenstraße, Buchstaben-Flieger). Die **Holztafeln** bleiben an ihren Positionen und tragen **eigene Schilde pro Typ**; abgewählte Tafel-Kategorien werden nur durch andere aktive *Tafel*-Rätsel ersetzt (nie durch Minispiele). **Minispiele** stehen nur an Sonderorten (Ballkanone im Baumhaus, Buchstabenstraße vor der Straße, Buchstaben-Flieger am Hangar) und verschwinden dort, wenn die Kategorie aus ist — kein Remapping auf Boden-Tafeln. Beim Anlaufen erscheint ein **zufälliges Rätsel** aus der Kategorie der Tafel bzw. des Sonderorts. Mindestens eine Kategorie bleibt aktiv.
 
 Die Modi steuern, wie stark Schreiben unterstützt wird (Anzeige, Kästchen, Schreibtabelle). Sie gelten vor allem für **Wort-Magie** und verwandte Schreibaufgaben; Mathe/Nachzeichnen bleiben davon unberührt, sofern nicht anders vermerkt.
 
@@ -107,12 +110,14 @@ Die Modi steuern, wie stark Schreiben unterstützt wird (Anzeige, Kästchen, Sch
 
 ### 3.5 Debug-Modus
 
-Mit **F1** lässt sich ein **Debug-Modus** ein- und ausschalten (Toggle).
+Mit **F1** lässt sich ein **Debug-Modus** ein- und ausschalten (Toggle). Der Zustand wird **im Browser gespeichert** (wie der Schreib-Modus) und bleibt nach Reload erhalten.
 
 Im Debug-Modus:
 
 - Bei **jedem Rätsel** (während der Pause) erscheint ein **Dropdown**, mit dem man sofort zwischen den Schreib-Modi wechseln kann: *Buchstaben lernen* · *Schreibtabelle üben* · *Freies Schreiben*.
 - Der Wechsel gilt für die aktuelle Session-Ansicht und speichert den Settings-Default **nicht**.
+- **Auto-Lösen (Karte):** Checkbox im Debug-Panel; Stationen werden beim Annähern sofort gelöst (Welt-Effekte ohne Rätsel-UI), zum Testen der Level-Karte. Zustand wird im Browser gespeichert; wirkt nur bei aktivem Debug-Modus.
+- **Direkt-Einstieg Ballkanone:** Button „Ballkanone“ (nur bei aktivem Debug) öffnet das Minispiel sofort, ohne zur Station zu laufen.
 - Debug-UI ist klar als Entwicklerhilfe erkennbar (z. B. kleines Panel), nicht kindgerecht gestaltet nötig.
 - Ohne Debug-Modus ist das Dropdown unsichtbar; Kinder sehen nur den in den Settings gewählten Modus.
 
@@ -167,19 +172,20 @@ Größer/Kleiner und Zurückzählen sind **eigene Rätselvarianten**, nicht nur 
 
 ### 4.3 Nachzeichnen
 
-- Gestrichelte Vorlage auf dem Monitor (Pfad, Bogen, Leiter-Sprossen, Brückenlinie, Welle, Kreis, Buchstabenform)
-- Mit Pen ausreichend genau nachzeichnen
+- Gestrichelte Vorlage auf dem Monitor (erkennbares Motiv: Haus, Auto, Brücke mit Geländer, Leiter, Segelschiff, Sonne, … — ca. 20 Vorlagen)
+- Mit Pen ausreichend genau nachzeichnen (mehrere Striche erlaubt)
 - Großzügige Toleranz; positives Einrast-Feedback
 - Nach erfolgreichem Nachzeichnen entsteht der **Welteffekt** — dieselben Bausteine wie bei Wort-Magie, nur ausgelöst durch Zeichnen:
 
 | Nachgezeichnet | Effekt in der Welt |
 |----------------|--------------------|
-| Brückenlinie / Balken | **Brücke** klappt herunter oder erscheint |
-| Senkrechte Sprossen / Leiterform | **Leiter** fährt aus oder wird begehbar |
+| Brücke (Laufsteg + Geländer) | **Brücke** klappt herunter oder erscheint |
+| Leiter mit Sprossen | **Leiter** fährt aus oder wird begehbar |
 | Seilkurve / Wellenlinie | **Seil** kommt herunter |
 | Schlauch- / Leitungspfad | Wasser/Strom fließt, Rauch verschwindet |
 | Rampe / Schräge | Auffahrt für **Auto** |
 | Flugbogen | kurze Flug-/Gleitstrecke |
+| Weitere Motive (Haus, Auto, Segelschiff, …) | Slot-Effekt der Station / Editor |
 
 Wort-Magie und Nachzeichnen können denselben Effekt auslösen (z. B. Brücke per Wort *oder* per Nachzeichnen) — der Level-Designer / Editor wählt den Auslöser.
 
@@ -208,6 +214,49 @@ Zuordnung zu Figuren (Schwerpunkte):
 - Rush: Auto stark
 
 Falsche Form am falschen Ort: Hinweis („Hier brauchst du ein Schiff“), kein Schaden.
+
+### 4.5 Minispiele (Pause-Overlays)
+
+Neben Textfeld-Rätseln gibt es **eigene Stationen/Kategorien**, die ein Minispiel als Vollbild-Overlay öffnen. Die 2D-Welt pausiert hart (wie bei Wort/Mathe). Anlaut-/Textfeld-Invarianten gelten **nicht** für diese Overlays — Eingabe ist Tippen/Klicken bzw. Spurwechsel.
+
+#### Ballkanone (`type: "ballkanone"`)
+
+**Idee:** Für ein Zielwort die Buchstaben **in der richtigen Reihenfolge** mit einer Ballkanone abschießen (Tippen/Klicken auf den Buchstaben).
+
+**Umsetzung (Stand):**
+
+- Eigenes Modul unter `src/minigames/ballkanone/`
+- **Three.js**-Canvas über der Phaser-Welt (kein Shared-WebGL); Dispose beim Schließen
+- Variante **`static`** (MVP): Buchstaben schweben im Feld (Idle-Bewegung), bunte **3D-Buchstaben** (TextGeometry / Fallback ohne Platte)
+- Kanone, Bälle, Kiste, Barriere sowie Szenerie (**Baum, Laterne, Busch, Stein**) als **Tripo3D → Bake → GLB** unter `public/models/ballkanone/` (realistisch/PBR)
+- Zielwort unten im HUD; Lücken/Fortschritt und Fehlversuch-Zähler oben; Treffer-/Fehler-Feedback (Burst, Cue, Wegfliegen)
+- Richtige Treffer nur für den **nächsten** Buchstaben; Fehlschüsse zählen; Sterne wie bei anderen Rätseln
+- Eigene Stationen zusätzlich zu Wort-Rätseln (Textfeld bleibt unberührt)
+- Pipeline: Concept-PNG → `tripo make` → `npm run ballkanone:bake-tripo`; Runtime ruft Tripo **nie** auf
+- Agent-Trennung: [`docs/AGENT_OWNERS.md`](AGENT_OWNERS.md), Skill `.cursor/skills/tripo-3d-assets/`
+
+**Geplante Varianten** (noch nicht Spiel-MVP): `track`, `peek`, Silben-Stops — siehe [`docs/minigames/ballkanone-varianten.md`](minigames/ballkanone-varianten.md).
+
+#### Buchstabenstraße (`type: "buchstabenstrasse"`)
+
+**Idee:** Mit dem **Auto** des gewählten Mechs in drei Spuren fahren; Straße scrollt; Buchstaben kommen entgegen. Nur Buchstaben **mit Membership im Zielwort** einsammeln, sonst ausweichen, bis das Multiset des Worts leer ist.
+
+- Modul `src/minigames/buchstabenstrasse/` — aktuell **2D-Canvas** (kein Tripo)
+- Pause + Overlay wie Ballkanone; Sterne über Fehlversuche
+
+#### Buchstaben-Flieger (`type: "buchstabenflieger"`)
+
+**Idee:** Mech fliegt in drei Höhen-Spuren. **Radar-Booster** (Ja/Nein: steckt der Buchstabe im Wort?) und **Spur-Booster** (Anfang/Mitte/Ende) schalten Membership-Welle bzw. Panzer-Gegner frei — dieselben Fragen wie `letterPos` / Membership, als Flug-Minispiel.
+
+- Modul `src/minigames/buchstabenflieger/` — **2D-Canvas**; Hangar-Sonderort
+- Konzept: [`docs/minigames/buchstabenflieger.md`](minigames/buchstabenflieger.md)
+
+#### Weitere Kategorien (Kurz)
+
+| Typ | Kurzbeschreibung |
+|-----|------------------|
+| **Buchstaben-Position** (`letterPos`) | Position eines Buchstabens im Wort (Schreiben/Markieren) |
+| **Buchstaben-Bildwahl** (`letterPick`) | Zum Buchstaben das passende Bild wählen (Katalog unter `public/art/letterpick/`) |
 
 ---
 
@@ -264,7 +313,7 @@ Es gibt einen **Editor**, mit dem Eltern/Lehrpersonen Mathe- und Schreibrätsel 
 
 | Feld        | Inhalt                                              |
 |-------------|-----------------------------------------------------|
-| Typ         | Wort-Magie · Mathe · Transform · Nachzeichnen       |
+| Typ         | Wort-Magie · Mathe · Transform · Nachzeichnen · Ballkanone · Buchstabenstraße · Buchstaben-Flieger · Buchstaben-Position · Buchstaben-Bildwahl |
 | Hinweis     | Hören / Motiv / Wechsel (bei Wort)                  |
 | Lösung      | z. B. `Seil`, `Schiff`, `7`, `<`                     |
 | Stimme      | Vorlese-Text (oft = Lösungswort)                    |
@@ -317,18 +366,21 @@ Der Editor ändert **Inhalt und Schwierigkeit**; Steuerung (Pause, Textfeld, Pen
 
 ## 9. Technik-Skizze
 
-- Browser-Spiel (z. B. Phaser oder Pixi + eigene Physik)
-- Pointer/Touch/Pen-Events; Textfeld-Fokus für Windows Pen-Tastatur
-- Sprache: Web Speech API (`speechSynthesis`, `de-DE`)
-- Content als datengetriebene Rätsel (JSON), vom Editor pflegbar
-- Debug: F1 toggelt Debug-UI inkl. Modus-Dropdown am Rätsel
-- Mech-Assets: Seitenansicht-Sprites (neu oder abgeleitet aus dem Mech-Projekt; Iso-Sprites reichen für Side-View oft nicht)
+- **Hauptspiel:** Browser · **Phaser 3** (Arcade Physics) · TypeScript · Vite
+- **Minispiel Ballkanone:** zweites **Three.js**-Canvas im DOM-Overlay (Phaser pausiert); gebackene GLBs unter `public/models/ballkanone/`
+- **Tripo3D:** nur Authoring (Concept → `tripo make` → Bake-Script); nie zur Laufzeit
+- Pointer/Touch/Pen-Events; Textfeld-Fokus für Windows Pen-Tastatur (Textfeld-Rätsel)
+- Sprache: Web Speech API (`speechSynthesis`, `de-DE`) + optionale WAV-Clips
+- Content als datengetriebene Rätsel (`puzzleStore` / JSON / Editor-Overrides)
+- Debug: F1 toggelt Debug-UI inkl. Modus-Dropdown; Direkt-Button Ballkanone
+- Mech-Assets: Seitenansicht-Sprites Stil C unter `public/art/`
+- Agent-Workflow: [`ENTWICKLUNGSABLAUF.md`](ENTWICKLUNGSABLAUF.md) · Ownership [`AGENT_OWNERS.md`](AGENT_OWNERS.md)
 
 ---
 
 ## 10. MVP
 
-1. Ein Level, nur **Bolt**
+1. Ein Level, nur **Bolt** (Marina/Rush wählbar, soweit Assets da)
 2. Laufen/Springen per Touch
 3. Pause + Textfeld + Windows-Pen-Tastatur
 4. Wort-Magie: **Brücke** + **Seil** (Hör- und Motiv-Modus)
@@ -340,6 +392,8 @@ Der Editor ändert **Inhalt und Schwierigkeit**; Steuerung (Pause, Textfeld, Pen
 10. Mathe: mindestens Plus **und** eine Vergleichs- oder Zurückzähl-Variante
 11. Nachzeichnen: mindestens eine **Brücke** oder **Leiter** per Pfad
 12. Minimaler Editor: Wort/Mathe-Untertyp + Lösung + Hinweis-Modus (+ Nachzeichneffekt) speichern/laden
+13. **Ballkanone** (static): eigene Station(en), Tripo-Props, Debug-Direkt-Einstieg
+14. Kategorie-Filter in Settings (Wörter, Mathe, …, Ballkanone, Buchstabenstraße, …)
 
 ---
 
@@ -354,15 +408,18 @@ Der Editor ändert **Inhalt und Schwierigkeit**; Steuerung (Pause, Textfeld, Pen
 - Fehlerfreundlich, kurze Sessions, klare visuelle Belohnung in der Welt
 - Schwierigkeit über Spielmodus und Editor steigerbar, wenn das Kind Fortschritte macht
 - Mechs als Helfer-Helden, Stil C, freundlich
+- **3D-Minispiele** als eigene Inseln (Ordner + Agent-Owner); Stil darf realistisch/Tripo sein, ohne die 2D-Comic-Welt zu überschreiben
 
 ---
 
 ## 12. Offene Punkte
 
-- Exakter Tech-Stack und Projektstruktur im Repo
 - Umfang der ersten Schreibtabelle / Anlauttabelle (Vollsatz vs. Teilmenge)
 - Ab wann genau die Lösung bei **Schreibtabelle üben** erscheint (Versuchszahl, Button „Tipp“)
 - Ob **Freies Schreiben** nur die Hilfe abschaltet oder zusätzlich einen schwierigeren Wortschatz erzwingt
 - Eingabeformate für Größer/Kleiner (`<`/`>` vs. Wörter vs. Zahl wählen)
 - Speichern von Editor-Inhalten nur lokal vs. Cloud/Datei-Sync
 - Rechte/Credits für Anlaut-Didaktik (eigene Art, Leseschlau nur als strukturelles Vorbild)
+- Ballkanone-Varianten `track` / `peek` / Silben (nur spezifiziert, nicht gebaut)
+- Buchstabenstraße: ggf. spätere 3D-/Tripo-Aufwertung
+- Weitere 3D-Minispiele (z. B. Kettenhochhaus-Pläne) vs. reine 2D-Overlays

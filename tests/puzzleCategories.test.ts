@@ -1,9 +1,12 @@
 import { describe, expect, it } from "vitest";
 import {
   BOARD_CATEGORIES,
+  MINIGAME_CATEGORIES,
   PUZZLE_CATEGORIES,
   STATION_SLOTS,
   defaultEnabledCategories,
+  isBoardCategory,
+  isMinigameCategory,
   resolvedStationSlots,
   loadEnabledCategories,
   parseEnabledCategories,
@@ -11,6 +14,8 @@ import {
   puzzleForSlot,
   puzzlesInCategory,
   saveEnabledCategories,
+  signArtPathForCategory,
+  signKeyForCategory,
 } from "../src/logic/puzzleCategories";
 import { builtinPuzzles } from "../src/logic/puzzleStore";
 import type { PuzzleType } from "../src/logic/puzzleTypes";
@@ -34,9 +39,12 @@ function memoryStorage(initial: Record<string, string> = {}): Storage {
 }
 
 describe("puzzleCategories", () => {
-  it("defaults all categories on", () => {
+  it("defaults playable categories on (kettenhochhaus off)", () => {
     const enabled = defaultEnabledCategories();
-    for (const c of PUZZLE_CATEGORIES) expect(enabled[c]).toBe(true);
+    for (const c of PUZZLE_CATEGORIES) {
+      if (c === "kettenhochhaus") expect(enabled[c]).toBe(false);
+      else expect(enabled[c]).toBe(true);
+    }
   });
 
   it("parses partial storage and keeps defaults for missing keys", () => {
@@ -49,7 +57,7 @@ describe("puzzleCategories", () => {
   it("falls back when all categories would be off", () => {
     const allOff = Object.fromEntries(PUZZLE_CATEGORIES.map((c) => [c, false]));
     const parsed = parseEnabledCategories(JSON.stringify(allOff));
-    expect(PUZZLE_CATEGORIES.every((c) => parsed[c])).toBe(true);
+    expect(parsed).toEqual(defaultEnabledCategories());
   });
 
   it("persists and loads enabled categories", () => {
@@ -73,43 +81,84 @@ describe("puzzleCategories", () => {
     expect(PUZZLE_CATEGORIES.some((c) => loaded[c])).toBe(true);
   });
 
-  it("keeps every station position when categories are disabled", () => {
+  it("keeps board positions when a board category is disabled; drops minigame slots", () => {
     const storage = memoryStorage();
     const enabled = defaultEnabledCategories();
     enabled.math = false;
     enabled.ballkanone = false;
     saveEnabledCategories(enabled, storage);
     const slots = resolvedStationSlots(storage);
-    expect(slots).toHaveLength(STATION_SLOTS.length);
-    for (let i = 0; i < STATION_SLOTS.length; i++) {
-      const home = STATION_SLOTS[i]!;
-      const resolved = slots[i]!;
-      expect(resolved.id).toBe(home.id);
+    const boardHomes = STATION_SLOTS.filter((s) => isBoardCategory(s.category));
+    expect(slots.filter((s) => isBoardCategory(s.category))).toHaveLength(boardHomes.length);
+    expect(slots.some((s) => s.category === "ballkanone")).toBe(false);
+    expect(slots.every((s) => s.category !== "math")).toBe(true);
+    for (const resolved of slots) {
+      if (isBoardCategory(resolved.category)) expect(enabled[resolved.category]).toBe(true);
+      const home = STATION_SLOTS.find((h) => h.id === resolved.id)!;
       expect(resolved.x).toBe(home.x);
       expect(resolved.y).toBe(home.y);
       expect(resolved.effect).toBe(home.effect);
-      expect(enabled[resolved.category]).toBe(true);
     }
-    expect(slots.every((s) => s.category !== "math" && s.category !== "ballkanone")).toBe(true);
     const wordHome = slots.find((s) => s.id === "slot-word");
     expect(wordHome?.category).toBe("word");
   });
 
-  it("uses the only enabled category on every board", () => {
+  it("never remaps minigames onto board slots", () => {
+    const storage = memoryStorage();
+    const enabled = defaultEnabledCategories();
+    for (const c of BOARD_CATEGORIES) enabled[c] = false;
+    enabled.ballkanone = true;
+    enabled.buchstabenstrasse = true;
+    enabled.kettenhochhaus = false;
+    // Force at least one board on via save guard — enable only ballkanone-ish:
+    // leave word on so save accepts; then remapping should still never put ballkanone on boards.
+    enabled.word = true;
+    for (const c of BOARD_CATEGORIES) if (c !== "word") enabled[c] = false;
+    saveEnabledCategories(enabled, storage);
+    const slots = resolvedStationSlots(storage);
+    for (const slot of slots) {
+      if (isBoardCategory(STATION_SLOTS.find((h) => h.id === slot.id)!.category)) {
+        expect(isMinigameCategory(slot.category)).toBe(false);
+      }
+    }
+  });
+
+  it("uses the only enabled board category on every board slot", () => {
     const storage = memoryStorage();
     const enabled = defaultEnabledCategories();
     for (const c of PUZZLE_CATEGORIES) enabled[c] = c === "trace";
     saveEnabledCategories(enabled, storage);
     const slots = resolvedStationSlots(storage);
-    expect(slots).toHaveLength(STATION_SLOTS.length);
-    expect(slots.every((s) => s.category === "trace")).toBe(true);
+    const boards = slots.filter((s) => {
+      const home = STATION_SLOTS.find((h) => h.id === s.id)!;
+      return isBoardCategory(home.category);
+    });
+    expect(boards.length).toBe(BOARD_CATEGORIES.length);
+    expect(boards.every((s) => s.category === "trace")).toBe(true);
+    expect(slots.some((s) => s.category === "ballkanone")).toBe(false);
   });
 
-  it("has exactly one board slot per board category", () => {
+  it("has exactly one home slot per board category; ballkanone is minigame-only", () => {
     const cats = STATION_SLOTS.map((s) => s.category);
     expect(new Set(cats).size).toBe(cats.length);
     for (const c of BOARD_CATEGORIES) expect(cats).toContain(c);
+    expect(BOARD_CATEGORIES.includes("ballkanone")).toBe(false);
+    expect(BOARD_CATEGORIES.includes("buchstabenstrasse")).toBe(false);
+    expect(BOARD_CATEGORIES.includes("buchstabenflieger")).toBe(false);
+    expect(MINIGAME_CATEGORIES).toContain("ballkanone");
+    expect(MINIGAME_CATEGORIES).toContain("buchstabenflieger");
     expect(cats.includes("buchstabenstrasse")).toBe(false);
+    expect(cats).toContain("ballkanone");
+    expect(cats).toContain("buchstabenflieger");
+  });
+
+  it("maps each playable type to a dedicated sign art key", () => {
+    for (const c of [...BOARD_CATEGORIES, "ballkanone", "buchstabenstrasse"] as PuzzleType[]) {
+      expect(signKeyForCategory(c)).not.toBe("station-sign");
+      expect(signArtPathForCategory(c)).toMatch(/^art\/station_sign_/);
+    }
+    expect(signKeyForCategory("kettenhochhaus")).toBe("station-sign");
+    expect(signKeyForCategory("buchstabenflieger")).toBe("station-sign");
   });
 
   it("picks a random puzzle from the same category", () => {
