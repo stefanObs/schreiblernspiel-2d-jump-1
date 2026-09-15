@@ -52,7 +52,6 @@ export function signKeyForCategory(category: PuzzleType): string {
     letterPick: "station-sign-letter-pick",
     ballkanone: "station-sign-ballkanone",
     buchstabenstrasse: "station-sign-buchstabenstrasse",
-    buchstabenflieger: "station-sign",
   };
   return map[category] ?? "station-sign";
 }
@@ -98,7 +97,7 @@ export type StationSlotDef = {
   y: number;
   /** Fixed world effect for progression (transform uses the picked puzzle’s effect). */
   effect: WorldEffect;
-  /** If true, board sits on the elevated mid-platform. */
+  /** If true, board sits on the treehouse deck (or other elevated solid). */
   elevated?: boolean;
 };
 
@@ -121,7 +120,6 @@ export const STATION_SLOTS: StationSlotDef[] = [
   },
   { id: "slot-math", category: "math", x: 2100, y: 570, effect: "none" },
   { id: "slot-letter-pick", category: "letterPick", x: 2280, y: 570, effect: "spawn_lake_bridge" },
-  { id: "slot-buchstabenflieger", category: "buchstabenflieger", x: 3980, y: 570, effect: "none" },
   { id: "slot-transform", category: "transform", x: 4100, y: 570, effect: "none" },
   { id: "slot-trace", category: "trace", x: 4500, y: 570, effect: "none" },
 ];
@@ -133,6 +131,8 @@ export function defaultEnabledCategories(): EnabledCategories {
   for (const c of PUZZLE_CATEGORIES) out[c] = true;
   // Play disabled until Querkette / Axt UX is ready enough for kids.
   out.kettenhochhaus = false;
+  // No Hangar-Sonderort yet — keep off so it never appears as a ground board.
+  out.buchstabenflieger = false;
   return out;
 }
 

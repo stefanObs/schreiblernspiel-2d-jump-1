@@ -39,10 +39,10 @@ function memoryStorage(initial: Record<string, string> = {}): Storage {
 }
 
 describe("puzzleCategories", () => {
-  it("defaults playable categories on (kettenhochhaus off)", () => {
+  it("defaults playable categories on (kettenhochhaus and flieger off)", () => {
     const enabled = defaultEnabledCategories();
     for (const c of PUZZLE_CATEGORIES) {
-      if (c === "kettenhochhaus") expect(enabled[c]).toBe(false);
+      if (c === "kettenhochhaus" || c === "buchstabenflieger") expect(enabled[c]).toBe(false);
       else expect(enabled[c]).toBe(true);
     }
   });
@@ -138,7 +138,7 @@ describe("puzzleCategories", () => {
     expect(slots.some((s) => s.category === "ballkanone")).toBe(false);
   });
 
-  it("has exactly one home slot per board category; ballkanone is minigame-only", () => {
+  it("has exactly one home slot per board category; minigames are not boards", () => {
     const cats = STATION_SLOTS.map((s) => s.category);
     expect(new Set(cats).size).toBe(cats.length);
     for (const c of BOARD_CATEGORIES) expect(cats).toContain(c);
@@ -148,8 +148,8 @@ describe("puzzleCategories", () => {
     expect(MINIGAME_CATEGORIES).toContain("ballkanone");
     expect(MINIGAME_CATEGORIES).toContain("buchstabenflieger");
     expect(cats.includes("buchstabenstrasse")).toBe(false);
+    expect(cats.includes("buchstabenflieger")).toBe(false);
     expect(cats).toContain("ballkanone");
-    expect(cats).toContain("buchstabenflieger");
   });
 
   it("maps each playable type to a dedicated sign art key", () => {

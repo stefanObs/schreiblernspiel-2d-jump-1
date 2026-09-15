@@ -134,7 +134,7 @@ function ensureSettingsDom(): void {
       <fieldset id="settings-puzzle-categories">
         <legend>Rätsel auf der Bachbrücke</legend>
         <p class="settings-help">
-          Die Holztafeln bleiben an ihrem Platz. Abgewählte Kategorien werden durch andere aktive Rätsel ersetzt.
+          Holztafeln bleiben an ihrem Platz; abgewählte Tafel-Typen werden durch andere Tafel-Rätsel ersetzt. Minispiele (Ballkanone, Buchstabenstraße) nur an Sonderorten — ausgeschaltet verschwinden sie dort.
         </p>
         <div id="settings-category-list" class="settings-category-list"></div>
         <p id="settings-category-hint" class="settings-help settings-category-hint hidden" role="status">

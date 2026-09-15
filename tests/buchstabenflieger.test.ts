@@ -144,12 +144,13 @@ describe("buchstabenflieger mission", () => {
 });
 
 describe("buchstabenflieger station wiring", () => {
-  it("registers type, builtin, category, and hangar slot", () => {
+  it("registers type and builtin as minigame without a ground board slot", () => {
     expect(PUZZLE_CATEGORIES).toContain("buchstabenflieger");
     expect(MINIGAME_CATEGORIES).toContain("buchstabenflieger");
     expect(isMinigameCategory("buchstabenflieger")).toBe(true);
-    expect(defaultEnabledCategories().buchstabenflieger).toBe(true);
+    // Hangar-Sonderort not shipped yet — off by default, no world Holztafel.
+    expect(defaultEnabledCategories().buchstabenflieger).toBe(false);
     expect(builtinPuzzles().some((p) => p.type === "buchstabenflieger")).toBe(true);
-    expect(STATION_SLOTS.some((s) => s.category === "buchstabenflieger")).toBe(true);
+    expect(STATION_SLOTS.every((s) => s.category !== "buchstabenflieger")).toBe(true);
   });
 });
